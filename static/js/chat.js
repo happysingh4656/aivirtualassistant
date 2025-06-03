@@ -453,79 +453,136 @@ class SerenityChat {
 
     async startRecording() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    sampleRate: 16000,
-                    channelCount: 1,
-                    echoCancellation: true,
-                    noiseSuppression: true
-                }
-            });
+            // Request microphone access with fallback constraints
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+            } catch (constraintError) {
+                console.warn('Failed with specific constraints, trying basic audio:', constraintError);
+                // Fallback to basic audio if constraints fail
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            }
 
-            // Check if MediaRecorder supports WAV format
+            // Find best supported MIME type
             let mimeType = 'audio/wav';
-            if (!MediaRecorder.isTypeSupported(mimeType)) {
-                mimeType = 'audio/webm;codecs=opus';
-                if (!MediaRecorder.isTypeSupported(mimeType)) {
-                    mimeType = 'audio/mp4';
+            const supportedTypes = [
+                'audio/wav',
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/mp4',
+                'audio/ogg;codecs=opus'
+            ];
+
+            for (const type of supportedTypes) {
+                if (MediaRecorder.isTypeSupported(type)) {
+                    mimeType = type;
+                    break;
                 }
             }
 
-            this.mediaRecorder = new MediaRecorder(stream, { mimeType });
+            console.log('Using MIME type:', mimeType);
+
+            // Create MediaRecorder with error handling
+            try {
+                this.mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType,
+                    audioBitsPerSecond: 128000
+                });
+            } catch (recorderError) {
+                console.warn('MediaRecorder creation failed, trying without options:', recorderError);
+                this.mediaRecorder = new MediaRecorder(stream);
+                mimeType = this.mediaRecorder.mimeType;
+            }
+
             this.audioChunks = [];
 
             this.mediaRecorder.ondataavailable = (event) => {
+                console.log('Data available:', event.data.size, 'bytes');
                 if (event.data.size > 0) {
                     this.audioChunks.push(event.data);
                 }
             };
 
             this.mediaRecorder.onstop = async () => {
+                console.log('Recording stopped, processing', this.audioChunks.length, 'chunks');
                 try {
                     const audioBlob = new Blob(this.audioChunks, { type: mimeType });
                     console.log('Audio blob created:', audioBlob.size, 'bytes, type:', audioBlob.type);
                     
                     if (audioBlob.size === 0) {
-                        throw new Error('No audio data recorded');
+                        throw new Error('No audio data recorded. Please try speaking longer or check your microphone.');
+                    }
+                    
+                    if (audioBlob.size < 1000) {
+                        throw new Error('Audio recording too short. Please speak for at least 1 second.');
                     }
                     
                     await this.processVoiceInput(audioBlob);
                 } catch (error) {
                     console.error('Error processing recorded audio:', error);
-                    this.addMessage('Error processing recorded audio. Please try again.', 'assistant', { error: true });
+                    this.addMessage(`Error processing recorded audio: ${error.message}`, 'assistant', { error: true });
                 } finally {
                     // Stop all tracks
                     stream.getTracks().forEach(track => track.stop());
+                    this.audioChunks = [];
                 }
             };
 
             this.mediaRecorder.onerror = (event) => {
                 console.error('MediaRecorder error:', event.error);
-                this.addMessage('Recording error occurred. Please try again.', 'assistant', { error: true });
+                this.addMessage(`Recording error: ${event.error?.message || 'Unknown error'}. Please try again.`, 'assistant', { error: true });
                 this.isRecording = false;
                 this.updateVoiceButtonState(false);
                 stream.getTracks().forEach(track => track.stop());
             };
 
-            // Start recording with time slicing for better data handling
-            this.mediaRecorder.start(1000);
-            this.isRecording = true;
+            // Start recording
+            try {
+                this.mediaRecorder.start(1000); // Collect data every second
+                this.isRecording = true;
 
-            // Update UI
-            this.updateVoiceButtonState(true);
-            this.addMessage('🎤 Listening... Click the stop button when finished speaking.', 'assistant');
+                // Update UI
+                this.updateVoiceButtonState(true);
+                this.addMessage('🎤 Listening... Click the stop button when finished speaking.', 'assistant');
+
+                // Auto-stop after 30 seconds to prevent very long recordings
+                setTimeout(() => {
+                    if (this.isRecording) {
+                        console.log('Auto-stopping recording after 30 seconds');
+                        this.stopRecording();
+                    }
+                }, 30000);
+
+            } catch (startError) {
+                console.error('Failed to start recording:', startError);
+                stream.getTracks().forEach(track => track.stop());
+                throw new Error('Failed to start recording. Please try again.');
+            }
 
         } catch (error) {
             console.error('Recording error:', error);
             let errorMessage = 'Unable to access microphone. ';
+            
             if (error.name === 'NotAllowedError') {
-                errorMessage += 'Please allow microphone access and try again.';
+                errorMessage += 'Please allow microphone access in your browser settings and try again.';
             } else if (error.name === 'NotFoundError') {
-                errorMessage += 'No microphone found. Please connect a microphone.';
+                errorMessage += 'No microphone found. Please connect a microphone and try again.';
+            } else if (error.name === 'NotSupportedError') {
+                errorMessage += 'Your browser does not support audio recording.';
             } else {
-                errorMessage += 'Please check your microphone settings and try again.';
+                errorMessage += `${error.message || 'Please check your microphone settings and try again.'}`;
             }
+            
             this.addMessage(errorMessage, 'assistant', { error: true });
+            this.isRecording = false;
+            this.updateVoiceButtonState(false);
         }
     }
 
@@ -555,18 +612,39 @@ class SerenityChat {
         try {
             console.log('Processing audio blob:', audioBlob.size, 'bytes, type:', audioBlob.type);
             
+            // Validate audio blob
+            if (!audioBlob || audioBlob.size === 0) {
+                throw new Error('No audio data recorded. Please try again.');
+            }
+
             // Convert audio blob to WAV format if needed
             const wavBlob = await this.convertToWav(audioBlob);
             console.log('Converted to WAV:', wavBlob.size, 'bytes');
 
-            // Convert audio blob to base64
+            // Validate converted audio
+            if (!wavBlob || wavBlob.size === 0) {
+                throw new Error('Audio conversion failed. Please try recording again.');
+            }
+
+            // Convert audio blob to base64 with better error handling
             const audioBuffer = await wavBlob.arrayBuffer();
-            const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+            
+            // Create base64 in chunks to avoid memory issues
+            const uint8Array = new Uint8Array(audioBuffer);
+            let binary = '';
+            const chunkSize = 1024;
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                const chunk = uint8Array.slice(i, i + chunkSize);
+                binary += String.fromCharCode.apply(null, chunk);
+            }
+            const audioBase64 = btoa(binary);
+
+            console.log('Audio converted to base64, length:', audioBase64.length);
 
             this.showTypingIndicator();
             this.addMessage('🔄 Processing voice input...', 'assistant');
 
-            // Send to speech-to-text endpoint
+            // Send to speech-to-text endpoint with better error handling
             const response = await fetch('/voice/speech-to-text', {
                 method: 'POST',
                 headers: {
@@ -578,12 +656,18 @@ class SerenityChat {
                 })
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            let data;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error('Invalid response from server. Please try again.');
             }
 
-            const data = await response.json();
+            if (!response.ok) {
+                const errorMsg = data?.error || `Server error (${response.status})`;
+                throw new Error(errorMsg);
+            }
 
             if (data.success && data.text && data.text.trim()) {
                 // Clear the input first
@@ -602,13 +686,19 @@ class SerenityChat {
         } catch (error) {
             console.error('Voice processing error:', error);
             let errorMessage = 'Error processing voice input. ';
-            if (error.message.includes('HTTP 503')) {
+            
+            if (error.message.includes('HTTP 503') || error.message.includes('Service Unavailable')) {
                 errorMessage += 'Voice service is not available on this server.';
-            } else if (error.message.includes('network')) {
+            } else if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
                 errorMessage += 'Please check your internet connection and try again.';
+            } else if (error.message.includes('No audio data')) {
+                errorMessage = error.message;
+            } else if (error.message.includes('conversion failed')) {
+                errorMessage = error.message;
             } else {
-                errorMessage += 'Please try again.';
+                errorMessage += `${error.message || 'Please try again.'}`;
             }
+            
             this.addMessage(errorMessage, 'assistant', { error: true });
         } finally {
             this.hideTypingIndicator();

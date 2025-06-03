@@ -79,9 +79,20 @@ class VoiceHandler:
             return None, "Speech recognition not available"
         
         try:
+            # Validate base64 input
+            if not audio_data or len(audio_data) < 100:
+                return None, "No audio data received or data too small"
+            
             # Convert base64 audio data to audio format
-            audio_bytes = base64.b64decode(audio_data)
-            logging.info(f"Received audio data: {len(audio_bytes)} bytes")
+            try:
+                audio_bytes = base64.b64decode(audio_data)
+                logging.info(f"Received audio data: {len(audio_bytes)} bytes")
+            except Exception as decode_error:
+                logging.error(f"Base64 decode error: {decode_error}")
+                return None, "Invalid audio data format"
+            
+            if len(audio_bytes) < 1000:
+                return None, "Audio data too small. Please record for at least 1 second."
             
             # Create temporary file
             with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
@@ -89,56 +100,106 @@ class VoiceHandler:
                 temp_file_path = temp_file.name
             
             try:
-                # Validate audio file first
-                if not self._validate_audio_file(temp_file_path):
-                    # Try to convert using pydub if available
-                    if AudioSegment:
-                        try:
-                            audio_segment = AudioSegment.from_file(temp_file_path)
-                            # Convert to proper format
-                            audio_segment = audio_segment.set_frame_rate(16000).set_channels(1)
-                            
-                            # Create new temporary file
-                            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as converted_file:
-                                converted_path = converted_file.name
-                            
-                            audio_segment.export(converted_path, format="wav")
-                            os.unlink(temp_file_path)
-                            temp_file_path = converted_path
-                            
-                            logging.info("Audio file converted successfully")
-                        except Exception as conv_error:
-                            logging.error(f"Audio conversion failed: {conv_error}")
-                            return None, "Invalid audio format. Please try recording again."
+                # Validate and convert audio file if needed
+                audio_processed = False
                 
-                # Load audio file
+                # First try to validate the original file
+                if self._validate_audio_file(temp_file_path):
+                    audio_processed = True
+                    logging.info("Original audio file is valid")
+                elif AudioSegment:
+                    # Try to convert using pydub if available
+                    try:
+                        logging.info("Attempting to convert audio file")
+                        audio_segment = AudioSegment.from_file(temp_file_path)
+                        
+                        # Normalize audio: convert to mono, 16kHz, 16-bit
+                        audio_segment = audio_segment.set_frame_rate(16000).set_channels(1)
+                        
+                        # Ensure minimum length (at least 0.5 seconds)
+                        if len(audio_segment) < 500:
+                            return None, "Audio recording too short. Please speak for at least 0.5 seconds."
+                        
+                        # Create new temporary file
+                        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as converted_file:
+                            converted_path = converted_file.name
+                        
+                        # Export as WAV with specific parameters
+                        audio_segment.export(
+                            converted_path, 
+                            format="wav",
+                            parameters=["-ac", "1", "-ar", "16000"]
+                        )
+                        
+                        # Clean up original file and use converted one
+                        os.unlink(temp_file_path)
+                        temp_file_path = converted_path
+                        audio_processed = True
+                        
+                        logging.info(f"Audio file converted successfully, duration: {len(audio_segment)}ms")
+                        
+                    except Exception as conv_error:
+                        logging.error(f"Audio conversion failed: {conv_error}")
+                        return None, f"Audio conversion failed: {str(conv_error)}. Please try recording again."
+                
+                if not audio_processed:
+                    return None, "Could not process audio file. Please try recording again with a different browser or device."
+                
+                # Load and process audio file
                 with sr.AudioFile(temp_file_path) as source:
-                    # Adjust for ambient noise
-                    self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                    # Adjust for ambient noise with shorter duration
+                    try:
+                        self.recognizer.adjust_for_ambient_noise(source, duration=0.2)
+                    except Exception as noise_error:
+                        logging.warning(f"Could not adjust for ambient noise: {noise_error}")
+                    
+                    # Record the entire audio file
                     audio = self.recognizer.record(source)
                     
-                    logging.info(f"Audio recorded for recognition: {len(audio.get_raw_data())} bytes")
+                    audio_data_size = len(audio.get_raw_data())
+                    logging.info(f"Audio recorded for recognition: {audio_data_size} bytes")
+                    
+                    if audio_data_size < 1000:
+                        return None, "Processed audio too small. Please speak longer and more clearly."
                 
                 # Convert language code
                 google_lang = self.supported_languages.get(language, 'en-US')
                 
-                # Recognize speech using Google Speech Recognition
-                text = self.recognizer.recognize_google(audio, language=google_lang)
-                logging.info(f"Speech recognition successful: {text}")
-                
-                return text, None
+                # Recognize speech using Google Speech Recognition with timeout
+                try:
+                    text = self.recognizer.recognize_google(
+                        audio, 
+                        language=google_lang,
+                        show_all=False
+                    )
+                    
+                    if not text or not text.strip():
+                        return None, "No speech detected. Please speak more clearly and try again."
+                    
+                    logging.info(f"Speech recognition successful: {text}")
+                    return text.strip(), None
+                    
+                except sr.UnknownValueError:
+                    logging.warning("Speech recognition could not understand audio")
+                    return None, "Could not understand the audio. Please speak more clearly, louder, or try again."
+                    
+                except sr.RequestError as req_error:
+                    logging.error(f"Speech recognition service error: {req_error}")
+                    if "quota" in str(req_error).lower():
+                        return None, "Speech recognition quota exceeded. Please try again later."
+                    elif "network" in str(req_error).lower():
+                        return None, "Network error connecting to speech recognition service. Please check your internet connection."
+                    else:
+                        return None, f"Speech recognition service error: {req_error}"
                 
             finally:
                 # Clean up temporary file
                 if os.path.exists(temp_file_path):
-                    os.unlink(temp_file_path)
+                    try:
+                        os.unlink(temp_file_path)
+                    except Exception as cleanup_error:
+                        logging.warning(f"Could not clean up temp file: {cleanup_error}")
                 
-        except sr.UnknownValueError:
-            logging.warning("Speech recognition could not understand audio")
-            return None, "Could not understand the audio. Please speak more clearly or try again."
-        except sr.RequestError as e:
-            logging.error(f"Speech recognition service error: {e}")
-            return None, f"Speech recognition service is currently unavailable: {e}"
         except Exception as e:
             logging.error(f"Speech to text error: {e}")
             return None, f"Error processing audio: {str(e)}"
