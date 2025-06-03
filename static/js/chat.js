@@ -64,6 +64,12 @@ class SerenityChat {
         if (this.speakerButton) {
             this.speakerButton.addEventListener('click', () => this.toggleSpeakerMode());
         }
+
+        // Test voice button
+        this.testVoiceButton = document.getElementById('testVoiceButton');
+        if (this.testVoiceButton) {
+            this.testVoiceButton.addEventListener('click', () => this.testVoiceFunctionality());
+        }
     }
 
     async handleSendMessage(e) {
@@ -616,6 +622,16 @@ class SerenityChat {
         } catch (error) {
             console.error('Text-to-speech error:', error);
         }
+    }
+
+    base64ToBlob(base64Data, contentType) {
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        return new Blob([byteArray], { type: contentType });
     }
 
     async testVoiceFunctionality() {
