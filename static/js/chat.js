@@ -405,15 +405,18 @@ class SerenityChat {
         console.log('Language changed to:', selectedLang);
     }
 
-    startVoiceConversation(language) {
+    async startVoiceConversation(language) {
         // Send language confirmation to assistant
         const languageName = language === 'en' ? 'English' : 'Hindi';
         const confirmationMessage = `I would like to communicate in ${languageName}`;
         
-        // Send message to assistant to confirm language and start voice mode
-        this.sendVoiceMessage(confirmationMessage);
+        // Add user message to show language selection
+        this.addMessage(confirmationMessage, 'user');
         
-        // Enable continuous conversation mode automatically
+        // Send message to assistant to confirm language and start voice mode
+        await this.sendVoiceMessage(confirmationMessage);
+        
+        // Enable continuous conversation mode automatically after response
         setTimeout(() => {
             if (!this.continuousMode) {
                 this.toggleConversationMode();
@@ -876,18 +879,27 @@ class SerenityChat {
                 if (data.session_type === 'meditation_offer') {
                     this.handleMeditationOffer();
                 } else if (data.session_type === 'language_confirmed') {
-                    // After language confirmation, enable conversation mode automatically
+                    // After language confirmation, enable conversation mode and prompt for input
                     if (!this.continuousMode) {
                         setTimeout(() => {
                             this.toggleConversationMode();
+                            // Immediately prompt for voice input after language confirmation
+                            setTimeout(() => {
+                                this.promptForVoiceInput();
+                            }, 1000);
                         }, 2000);
+                    } else {
+                        // If already in continuous mode, just prompt for input
+                        setTimeout(() => {
+                            this.promptForVoiceInput();
+                        }, 3000);
                     }
                 }
 
                 // Enable continuous conversation mode with longer delay for user to process
-                if (this.continuousMode && !data.crisis_detected) {
+                if (this.continuousMode && !data.crisis_detected && data.session_type !== 'language_confirmed') {
                     setTimeout(() => {
-                        this.promptForNextInput();
+                        this.promptForVoiceInput();
                     }, 4000);
                 }
             }
@@ -902,6 +914,30 @@ class SerenityChat {
     promptForNextInput() {
         if (this.voiceAvailable && !this.isRecording) {
             this.addMessage('🎤 Ready for your next message. Click the microphone to continue.', 'assistant');
+        }
+    }
+
+    promptForVoiceInput() {
+        if (this.voiceAvailable && !this.isRecording) {
+            const promptMessage = this.currentLanguage === 'hi' ? 
+                '🎤 अब आप बोल सकते हैं। माइक्रोफोन बटन दबाकर अपनी बात कहें।' :
+                '🎤 You can now speak. Press the microphone button to share what\'s on your mind.';
+            
+            this.addMessage(promptMessage, 'assistant');
+            
+            // Auto-highlight the voice button to draw attention
+            if (this.voiceButton) {
+                this.voiceButton.classList.add('btn-warning');
+                this.voiceButton.classList.remove('btn-outline-primary');
+                
+                // Reset button style after 5 seconds
+                setTimeout(() => {
+                    if (this.voiceButton && !this.isRecording) {
+                        this.voiceButton.classList.remove('btn-warning');
+                        this.voiceButton.classList.add('btn-outline-primary');
+                    }
+                }, 5000);
+            }
         }
     }
 
