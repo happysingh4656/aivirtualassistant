@@ -698,6 +698,12 @@ class SerenityChat {
 
         } catch (error) {
             console.error('Voice processing error:', error);
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
+            
             let errorMessage = 'Error processing voice input. ';
             
             if (error.message && typeof error.message === 'string') {

@@ -167,6 +167,7 @@ class VoiceHandler:
                 
                 # Recognize speech using Google Speech Recognition with timeout
                 try:
+                    logging.info(f"Attempting speech recognition with language: {google_lang}")
                     text = self.recognizer.recognize_google(
                         audio, 
                         language=google_lang,
@@ -174,6 +175,7 @@ class VoiceHandler:
                     )
                     
                     if not text or not text.strip():
+                        logging.warning("Empty text returned from speech recognition")
                         return None, "No speech detected. Please speak more clearly and try again."
                     
                     logging.info(f"Speech recognition successful: {text}")
@@ -191,6 +193,10 @@ class VoiceHandler:
                         return None, "Network error connecting to speech recognition service. Please check your internet connection."
                     else:
                         return None, f"Speech recognition service error: {req_error}"
+                
+                except Exception as recognition_error:
+                    logging.error(f"Unexpected speech recognition error: {recognition_error}")
+                    return None, f"Speech recognition failed: {str(recognition_error)}"
                 
             finally:
                 # Clean up temporary file

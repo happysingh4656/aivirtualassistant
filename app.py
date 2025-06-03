@@ -108,17 +108,30 @@ def get_resources():
 def speech_to_text():
     """Convert speech audio to text"""
     try:
+        logging.info("Speech-to-text endpoint called")
+        
         if not voice_handler.is_available():
+            logging.error("Voice handler not available")
             return jsonify({
                 'success': False,
                 'error': 'Voice functionality not available on this server'
             }), 503
         
         data = request.get_json()
+        if not data:
+            logging.error("No JSON data received")
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+            
         audio_data = data.get('audio_data')
         language = data.get('language', 'en')
         
+        logging.info(f"Processing audio data of length: {len(audio_data) if audio_data else 0}, language: {language}")
+        
         if not audio_data:
+            logging.error("No audio data in request")
             return jsonify({
                 'success': False,
                 'error': 'No audio data provided'
@@ -127,10 +140,20 @@ def speech_to_text():
         # Convert speech to text
         text, error = voice_handler.speech_to_text(audio_data, language)
         
+        logging.info(f"Speech-to-text result - text: {text}, error: {error}")
+        
         if error:
+            logging.error(f"Speech-to-text error: {error}")
             return jsonify({
                 'success': False,
                 'error': error
+            }), 400
+        
+        if not text:
+            logging.warning("No text returned from speech recognition")
+            return jsonify({
+                'success': False,
+                'error': 'No speech detected in audio'
             }), 400
         
         return jsonify({
@@ -140,10 +163,10 @@ def speech_to_text():
         })
         
     except Exception as e:
-        logging.error(f"Speech to text error: {str(e)}")
+        logging.error(f"Speech to text endpoint error: {str(e)}", exc_info=True)
         return jsonify({
             'success': False,
-            'error': 'Error processing speech input'
+            'error': f'Error processing speech input: {str(e)}'
         }), 500
 
 @app.route('/voice/text-to-speech', methods=['POST'])
