@@ -216,6 +216,50 @@ def voice_status():
             'error': 'Error checking voice status'
         }), 500
 
+@app.route('/voice/test', methods=['POST'])
+def test_voice():
+    """Test voice functionality with sample text"""
+    try:
+        if not voice_handler.is_available():
+            return jsonify({
+                'success': False,
+                'error': 'Voice functionality not available on this server'
+            }), 503
+        
+        data = request.get_json()
+        language = data.get('language', 'en')
+        test_text = data.get('text', 'Hello! This is a voice test. If you can hear this, your voice functionality is working correctly.')
+        
+        # Test text-to-speech
+        audio_data, error = voice_handler.text_to_speech(test_text, language)
+        
+        if error:
+            return jsonify({
+                'success': False,
+                'error': f'Text-to-speech test failed: {error}'
+            }), 400
+        
+        # Get voice system information
+        voice_info = voice_handler.get_available_voices()
+        test_results = voice_handler.test_voice_functionality()
+        
+        return jsonify({
+            'success': True,
+            'audio_data': audio_data,
+            'language': language,
+            'test_text': test_text,
+            'voice_info': voice_info,
+            'test_results': test_results,
+            'message': 'Voice test completed successfully!'
+        })
+        
+    except Exception as e:
+        logging.error(f"Voice test error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Voice test failed: {str(e)}'
+        }), 500
+
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('index.html'), 404

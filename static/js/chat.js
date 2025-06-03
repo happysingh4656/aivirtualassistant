@@ -5,41 +5,41 @@ class SerenityChat {
         this.chatForm = document.getElementById('chatForm');
         this.sendButton = document.getElementById('sendButton');
         this.typingIndicator = document.getElementById('typingIndicator');
-        
+
         // Voice elements
         this.voiceButton = document.getElementById('voiceButton');
         this.speakerButton = document.getElementById('speakerButton');
         this.voiceStatus = document.getElementById('voiceStatus');
-        
+
         // Meditation modal elements
         this.meditationModal = new bootstrap.Modal(document.getElementById('meditationModal'));
         this.meditationContent = document.getElementById('meditationContent');
         this.nextMeditationStep = document.getElementById('nextMeditationStep');
-        
+
         // Resources modal elements
         this.resourcesModal = new bootstrap.Modal(document.getElementById('resourcesModal'));
         this.resourcesContent = document.getElementById('resourcesContent');
-        
+
         // Meditation session state
         this.currentMeditationSession = null;
         this.currentStep = 0;
-        
+
         // Voice functionality state
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
         this.voiceAvailable = false;
         this.currentLanguage = 'en';
-        
+
         this.initializeEventListeners();
         this.initializeVoiceFeatures();
         this.focusInput();
     }
-    
+
     initializeEventListeners() {
         // Chat form submission
         this.chatForm.addEventListener('submit', (e) => this.handleSendMessage(e));
-        
+
         // Enter key in input
         this.messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -47,43 +47,43 @@ class SerenityChat {
                 this.handleSendMessage(e);
             }
         });
-        
+
         // Meditation next step
         this.nextMeditationStep.addEventListener('click', () => this.nextMeditationStepHandler());
-        
+
         // Language selector change
         document.querySelectorAll('input[name="language"], input[name="mobileLanguage"]').forEach(radio => {
             radio.addEventListener('change', (e) => this.handleLanguageChange(e));
         });
-        
+
         // Voice button events
         if (this.voiceButton) {
             this.voiceButton.addEventListener('click', () => this.toggleVoiceRecording());
         }
-        
+
         if (this.speakerButton) {
             this.speakerButton.addEventListener('click', () => this.toggleSpeakerMode());
         }
     }
-    
+
     async handleSendMessage(e) {
         e.preventDefault();
-        
+
         const message = this.messageInput.value.trim();
         if (!message) return;
-        
+
         // Disable form while processing
         this.setFormState(false);
-        
+
         // Add user message to chat
         this.addMessage(message, 'user');
-        
+
         // Clear input
         this.messageInput.value = '';
-        
+
         // Show typing indicator
         this.showTypingIndicator();
-        
+
         try {
             const response = await fetch('/chat', {
                 method: 'POST',
@@ -92,9 +92,9 @@ class SerenityChat {
                 },
                 body: JSON.stringify({ message: message })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 // Add assistant response
                 this.addMessage(data.response, 'assistant', {
@@ -102,7 +102,7 @@ class SerenityChat {
                     sessionType: data.session_type,
                     crisisDetected: data.crisis_detected
                 });
-                
+
                 // Handle special response types
                 if (data.session_type === 'meditation_offer') {
                     this.handleMeditationOffer();
@@ -119,58 +119,58 @@ class SerenityChat {
             this.focusInput();
         }
     }
-    
+
     addMessage(content, sender, options = {}) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}-message`;
-        
+
         if (options.crisisDetected) {
             messageDiv.classList.add('crisis-message');
         }
-        
+
         const avatarDiv = document.createElement('div');
         avatarDiv.className = 'message-avatar';
-        
+
         if (sender === 'assistant') {
             avatarDiv.innerHTML = '<i class="fas fa-leaf"></i>';
         } else {
             avatarDiv.innerHTML = '<i class="fas fa-user"></i>';
         }
-        
+
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        
+
         // Process content for markdown-like formatting
         const processedContent = this.processMessageContent(content);
         contentDiv.innerHTML = processedContent;
-        
+
         messageDiv.appendChild(avatarDiv);
         messageDiv.appendChild(contentDiv);
-        
+
         this.chatMessages.appendChild(messageDiv);
         this.scrollToBottom();
-        
+
         // Add meditation buttons if this is a meditation offer
         if (options.sessionType === 'meditation_offer') {
             this.addMeditationButtons(contentDiv);
         }
     }
-    
+
     processMessageContent(content) {
         // Convert newlines to <br>
         let processed = content.replace(/\n/g, '<br>');
-        
+
         // Convert **bold** to <strong>
         processed = processed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        
+
         // Convert bullet points
         processed = processed.replace(/^[•·]\s*(.*?)$/gm, '<li>$1</li>');
-        
+
         // Wrap consecutive list items in <ul>
         processed = processed.replace(/(<li>.*?<\/li>)(<br>)?(?=<li>|$)/gs, (match, listItem) => {
             return listItem;
         });
-        
+
         // Group list items
         processed = processed.replace(/(<li>.*?<\/li>)(<br>)*(<li>.*?<\/li>)/gs, (match) => {
             const items = match.match(/<li>.*?<\/li>/g);
@@ -179,24 +179,24 @@ class SerenityChat {
             }
             return match;
         });
-        
+
         // Clean up any remaining standalone list items
         processed = processed.replace(/<li>(.*?)<\/li>/g, '<ul><li>$1</li></ul>');
-        
+
         return processed;
     }
-    
+
     addMeditationButtons(contentDiv) {
         setTimeout(() => {
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'meditation-buttons mt-3';
-            
+
             const buttons = [
                 { text: 'Breathing Exercise (5 min)', type: 'breathing', duration: '5' },
                 { text: 'Body Scan (10 min)', type: 'bodyscan', duration: '10' },
                 { text: 'Mindfulness (5 min)', type: 'mindfulness', duration: '5' }
             ];
-            
+
             buttons.forEach(button => {
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-outline-primary btn-sm me-2 mb-2';
@@ -204,16 +204,16 @@ class SerenityChat {
                 btn.onclick = () => this.startMeditation(button.type, button.duration);
                 buttonContainer.appendChild(btn);
             });
-            
+
             contentDiv.appendChild(buttonContainer);
         }, 1000);
     }
-    
+
     async startMeditation(sessionType, duration) {
         try {
             const response = await fetch(`/meditation/${sessionType}/${duration}`);
             const data = await response.json();
-            
+
             if (data.success) {
                 this.currentMeditationSession = data;
                 this.currentStep = 0;
@@ -224,41 +224,41 @@ class SerenityChat {
             this.addMessage('Unable to start meditation session. Please try again.', 'assistant', { error: true });
         }
     }
-    
+
     showMeditationModal() {
         if (!this.currentMeditationSession) return;
-        
+
         const { meditation_script, session_type, duration } = this.currentMeditationSession;
-        
+
         // Update modal title
         const modalTitle = document.querySelector('#meditationModal .modal-title');
         modalTitle.textContent = `${session_type.charAt(0).toUpperCase() + session_type.slice(1)} Meditation (${duration} min)`;
-        
+
         // Show first step
         this.updateMeditationStep();
-        
+
         this.meditationModal.show();
     }
-    
+
     updateMeditationStep() {
         if (!this.currentMeditationSession) return;
-        
+
         const { meditation_script } = this.currentMeditationSession;
         const totalSteps = meditation_script.length;
-        
+
         if (this.currentStep >= totalSteps) {
             // Meditation complete
             this.completeMeditation();
             return;
         }
-        
+
         // Update progress bar
         const progressHtml = `
             <div class="meditation-progress">
                 <div class="meditation-progress-bar" style="width: ${(this.currentStep / totalSteps) * 100}%"></div>
             </div>
         `;
-        
+
         // Update content
         const stepHtml = `
             ${progressHtml}
@@ -267,9 +267,9 @@ class SerenityChat {
                 <p>${meditation_script[this.currentStep]}</p>
             </div>
         `;
-        
+
         this.meditationContent.innerHTML = stepHtml;
-        
+
         // Update button text
         if (this.currentStep === totalSteps - 1) {
             this.nextMeditationStep.textContent = 'Complete';
@@ -277,12 +277,12 @@ class SerenityChat {
             this.nextMeditationStep.textContent = 'Next';
         }
     }
-    
+
     nextMeditationStepHandler() {
         this.currentStep++;
         this.updateMeditationStep();
     }
-    
+
     completeMeditation() {
         this.meditationContent.innerHTML = `
             <div class="text-center">
@@ -291,9 +291,9 @@ class SerenityChat {
                 <p>Well done! You've completed your meditation session. Take a moment to notice how you feel.</p>
             </div>
         `;
-        
+
         this.nextMeditationStep.style.display = 'none';
-        
+
         // Add completion message to chat
         setTimeout(() => {
             this.meditationModal.hide();
@@ -303,12 +303,12 @@ class SerenityChat {
             this.nextMeditationStep.style.display = 'inline-block';
         }, 3000);
     }
-    
+
     async showResources() {
         try {
             const response = await fetch('/resources');
             const data = await response.json();
-            
+
             if (data.success) {
                 this.displayResources(data.resources);
                 this.resourcesModal.show();
@@ -318,7 +318,7 @@ class SerenityChat {
             this.addMessage('Unable to load resources. Please try again.', 'assistant', { error: true });
         }
     }
-    
+
     displayResources(resources) {
         let resourcesHtml = `
             <div class="alert alert-warning">
@@ -326,7 +326,7 @@ class SerenityChat {
             </div>
             <h6 class="mb-3">Emergency Helplines:</h6>
         `;
-        
+
         resources.helplines.forEach(helpline => {
             resourcesHtml += `
                 <div class="resource-card">
@@ -336,67 +336,67 @@ class SerenityChat {
                 </div>
             `;
         });
-        
+
         this.resourcesContent.innerHTML = resourcesHtml;
     }
-    
+
     setFormState(enabled) {
         this.messageInput.disabled = !enabled;
         this.sendButton.disabled = !enabled;
-        
+
         if (enabled) {
             this.sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
         } else {
             this.sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         }
     }
-    
+
     showTypingIndicator() {
         this.typingIndicator.style.display = 'block';
         this.scrollToBottom();
     }
-    
+
     hideTypingIndicator() {
         this.typingIndicator.style.display = 'none';
     }
-    
+
     scrollToBottom() {
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
-    
+
     focusInput() {
         this.messageInput.focus();
     }
-    
+
     handleLanguageChange(e) {
         // Sync language selection between desktop and mobile
         const selectedLang = e.target.value;
         document.querySelectorAll('input[name="language"], input[name="mobileLanguage"]').forEach(radio => {
             radio.checked = radio.value === selectedLang;
         });
-        
+
         // You could add a message about language change here
         console.log('Language changed to:', selectedLang);
     }
-    
+
     handleMeditationOffer() {
         // Scroll to see the meditation buttons when they appear
         setTimeout(() => {
             this.scrollToBottom();
         }, 1500);
     }
-    
+
     async initializeVoiceFeatures() {
         try {
             // Check voice functionality status
             const response = await fetch('/voice/status');
             const data = await response.json();
-            
+
             if (data.success) {
                 this.voiceAvailable = data.status.available;
                 this.updateVoiceUI(data.status);
             }
-            
+
             // Request microphone permission
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
@@ -411,7 +411,7 @@ class SerenityChat {
             this.updateVoiceUI({ available: false });
         }
     }
-    
+
     updateVoiceUI(status) {
         if (this.voiceStatus) {
             if (status.available) {
@@ -422,81 +422,81 @@ class SerenityChat {
                 this.voiceStatus.className = 'badge bg-warning ms-2';
             }
         }
-        
+
         if (this.voiceButton) {
             this.voiceButton.disabled = !status.available;
         }
-        
+
         if (this.speakerButton) {
             this.speakerButton.disabled = !status.available;
         }
     }
-    
+
     async toggleVoiceRecording() {
         if (!this.voiceAvailable) {
             this.addMessage('Voice functionality is not available on this server.', 'assistant', { error: true });
             return;
         }
-        
+
         if (this.isRecording) {
             await this.stopRecording();
         } else {
             await this.startRecording();
         }
     }
-    
+
     async startRecording() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
+
             this.mediaRecorder = new MediaRecorder(stream);
             this.audioChunks = [];
-            
+
             this.mediaRecorder.ondataavailable = (event) => {
                 this.audioChunks.push(event.data);
             };
-            
+
             this.mediaRecorder.onstop = async () => {
                 const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
                 await this.processVoiceInput(audioBlob);
-                
+
                 // Stop all tracks
                 stream.getTracks().forEach(track => track.stop());
             };
-            
+
             this.mediaRecorder.start();
             this.isRecording = true;
-            
+
             // Update UI
             this.voiceButton.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
             this.voiceButton.className = 'btn btn-danger btn-sm';
             this.addMessage('🎤 Listening... Click "Stop Recording" when finished speaking.', 'assistant');
-            
+
         } catch (error) {
             console.error('Recording error:', error);
             this.addMessage('Unable to access microphone. Please check permissions.', 'assistant', { error: true });
         }
     }
-    
+
     async stopRecording() {
         if (this.mediaRecorder && this.isRecording) {
             this.mediaRecorder.stop();
             this.isRecording = false;
-            
+
             // Update UI
             this.voiceButton.innerHTML = '<i class="fas fa-microphone"></i> Voice Input';
             this.voiceButton.className = 'btn btn-outline-primary btn-sm';
         }
     }
-    
+
     async processVoiceInput(audioBlob) {
         try {
             // Convert audio blob to base64
             const audioBuffer = await audioBlob.arrayBuffer();
             const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
-            
+
             this.showTypingIndicator();
-            
+
             // Send to speech-to-text endpoint
             const response = await fetch('/voice/speech-to-text', {
                 method: 'POST',
@@ -508,20 +508,20 @@ class SerenityChat {
                     language: this.currentLanguage
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success && data.text) {
                 // Add recognized text to input and send
                 this.messageInput.value = data.text;
                 this.addMessage(data.text, 'user');
-                
+
                 // Process the message
                 await this.sendVoiceMessage(data.text);
             } else {
                 this.addMessage(data.error || 'Could not understand speech. Please try again.', 'assistant', { error: true });
             }
-            
+
         } catch (error) {
             console.error('Voice processing error:', error);
             this.addMessage('Error processing voice input.', 'assistant', { error: true });
@@ -529,7 +529,7 @@ class SerenityChat {
             this.hideTypingIndicator();
         }
     }
-    
+
     async sendVoiceMessage(message) {
         try {
             const response = await fetch('/chat', {
@@ -539,21 +539,21 @@ class SerenityChat {
                 },
                 body: JSON.stringify({ message: message })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 this.addMessage(data.response, 'assistant', {
                     language: data.language,
                     sessionType: data.session_type,
                     crisisDetected: data.crisis_detected
                 });
-                
+
                 // Auto-speak response if speaker mode is enabled
                 if (this.speakerMode) {
                     await this.speakText(data.response, data.language);
                 }
-                
+
                 // Handle special response types
                 if (data.session_type === 'meditation_offer') {
                     this.handleMeditationOffer();
@@ -564,10 +564,10 @@ class SerenityChat {
             this.addMessage('Error processing voice message.', 'assistant', { error: true });
         }
     }
-    
+
     async toggleSpeakerMode() {
         this.speakerMode = !this.speakerMode;
-        
+
         if (this.speakerButton) {
             if (this.speakerMode) {
                 this.speakerButton.innerHTML = '<i class="fas fa-volume-up"></i> Speaker On';
@@ -580,10 +580,13 @@ class SerenityChat {
             }
         }
     }
-    
+
     async speakText(text, language = 'en') {
-        if (!this.voiceAvailable) return;
-        
+        if (!this.voiceAvailable) {
+            console.warn('Voice functionality not available');
+            return;
+        }
+
         try {
             const response = await fetch('/voice/text-to-speech', {
                 method: 'POST',
@@ -595,32 +598,101 @@ class SerenityChat {
                     language: language
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success && data.audio_data) {
-                // Convert base64 to audio blob and play
-                const audioData = atob(data.audio_data);
-                const audioArray = new Uint8Array(audioData.length);
-                for (let i = 0; i < audioData.length; i++) {
-                    audioArray[i] = audioData.charCodeAt(i);
-                }
-                
-                const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
+                // Convert base64 to audio and play
+                const audioBlob = this.base64ToBlob(data.audio_data, 'audio/wav');
                 const audioUrl = URL.createObjectURL(audioBlob);
                 const audio = new Audio(audioUrl);
-                
-                audio.play().catch(error => {
-                    console.error('Audio playback error:', error);
-                });
-                
-                // Clean up
+
                 audio.onended = () => {
                     URL.revokeObjectURL(audioUrl);
                 };
+
+                await audio.play();
             }
         } catch (error) {
             console.error('Text-to-speech error:', error);
+        }
+    }
+
+    async testVoiceFunctionality() {
+        if (!this.voiceAvailable) {
+            this.addMessage('Voice functionality is not available on this server.', 'assistant', { error: true });
+            return;
+        }
+
+        try {
+            // Show loading state
+            this.testVoiceButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+            this.testVoiceButton.disabled = true;
+
+            this.addMessage('🧪 Testing voice functionality...', 'assistant');
+
+            const response = await fetch('/voice/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    language: this.currentLanguage,
+                    text: this.currentLanguage === 'hi' ? 
+                        'नमस्ते! यह एक आवाज़ परीक्षण है। यदि आप इसे सुन सकते हैं, तो आपकी आवाज़ कार्यक्षमता सही तरीके से काम कर रही है।' :
+                        'Hello! This is a voice test. If you can hear this, your voice functionality is working correctly.'
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Play the test audio
+                if (data.audio_data) {
+                    const audioBlob = this.base64ToBlob(data.audio_data, 'audio/wav');
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+
+                    audio.onended = () => {
+                        URL.revokeObjectURL(audioUrl);
+                    };
+
+                    await audio.play();
+                }
+
+                // Show test results
+                let resultMessage = '✅ Voice test completed successfully!\n\n';
+                resultMessage += `📊 Test Results:\n`;
+                resultMessage += `• Text-to-Speech: ${data.test_results.text_to_speech ? '✅ Working' : '❌ Failed'}\n`;
+                resultMessage += `• Speech Recognition: ${data.test_results.speech_recognition ? '✅ Available' : '❌ Not Available'}\n`;
+                resultMessage += `• Language: ${data.language}\n`;
+                resultMessage += `• Available Voices: ${data.voice_info.length}`;
+
+                this.addMessage(resultMessage, 'assistant');
+
+                // Show available voices if any
+                if (data.voice_info.length > 0) {
+                    let voicesInfo = '\n🎤 Available Voices:\n';
+                    data.voice_info.slice(0, 5).forEach((voice, index) => {
+                        voicesInfo += `${index + 1}. ${voice.name} (${voice.language})\n`;
+                    });
+                    if (data.voice_info.length > 5) {
+                        voicesInfo += `... and ${data.voice_info.length - 5} more`;
+                    }
+                    this.addMessage(voicesInfo, 'assistant');
+                }
+
+            } else {
+                this.addMessage(`❌ Voice test failed: ${data.error}`, 'assistant', { error: true });
+            }
+
+        } catch (error) {
+            console.error('Voice test error:', error);
+            this.addMessage('❌ Error running voice test. Please try again.', 'assistant', { error: true });
+        } finally {
+            // Reset button state
+            this.testVoiceButton.innerHTML = '<i class="fas fa-vial"></i> Test Voice';
+            this.testVoiceButton.disabled = !this.voiceAvailable;
         }
     }
 }
