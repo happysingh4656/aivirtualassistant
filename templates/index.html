@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Serenity - Your Bilingual Mental Health Companion{% endblock %}
+
+{% block content %}
+<div class="row h-100">
+    <!-- Sidebar -->
+    <div class="col-md-3 sidebar d-none d-md-block">
+        <div class="sidebar-content">
+            <div class="logo-section text-center mb-4">
+                <img src="{{ url_for('static', filename='assets/meditation-icon.svg') }}" alt="Serenity" class="logo">
+                <h3 class="mt-2">Serenity</h3>
+                <p class="text-muted">शांति • Peace</p>
+            </div>
+            
+            <div class="disclaimer-card">
+                <h6><i class="fas fa-info-circle"></i> Important Notice</h6>
+                <p class="small">I'm an AI assistant designed to help with stress and meditation. I'm not a therapist or medical professional.</p>
+            </div>
+            
+            <div class="quick-actions">
+                <h6>Quick Actions</h6>
+                <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="startQuickMeditation()">
+                    <i class="fas fa-leaf"></i> Quick Meditation
+                </button>
+                <button class="btn btn-outline-secondary btn-sm w-100 mb-2" onclick="getStressTip()">
+                    <i class="fas fa-heart"></i> Stress Relief Tip
+                </button>
+                <button class="btn btn-outline-info btn-sm w-100 mb-2" onclick="showResources()">
+                    <i class="fas fa-phone"></i> Get Help Resources
+                </button>
+            </div>
+            
+            <div class="language-selector mt-4">
+                <h6>Language • भाषा</h6>
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="language" id="english" value="en" checked>
+                    <label class="btn btn-outline-primary btn-sm" for="english">English</label>
+                    
+                    <input type="radio" class="btn-check" name="language" id="hindi" value="hi">
+                    <label class="btn btn-outline-primary btn-sm" for="hindi">हिंदी</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Chat Area -->
+    <div class="col-md-9 chat-container">
+        <div class="chat-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0">Chat with Serenity</h5>
+                    <small class="text-muted">Your bilingual mental health companion</small>
+                </div>
+                <div class="d-md-none">
+                    <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message assistant-message">
+                <div class="message-avatar">
+                    <i class="fas fa-leaf"></i>
+                </div>
+                <div class="message-content">
+                    <p>🙏 Namaste! Hello! I'm Serenity, your bilingual mental health companion.</p>
+                    <p>I'm here to help you with stress relief, meditation, and emotional support in both English and Hindi (हिंदी).</p>
+                    <p><strong>How I can help:</strong></p>
+                    <ul>
+                        <li>🧘‍♀️ Guided meditation sessions</li>
+                        <li>💨 Breathing exercises</li>
+                        <li>💡 Stress relief techniques</li>
+                        <li>🤗 Empathetic conversation</li>
+                        <li>📞 Mental health resources</li>
+                    </ul>
+                    <p>Feel free to speak with me in English or Hindi. How are you feeling today?</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-input-container">
+            <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                <div class="message assistant-message">
+                    <div class="message-avatar">
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="typing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <form id="chatForm" class="chat-form">
+                <div class="input-group">
+                    <input type="text" id="messageInput" class="form-control" placeholder="Type your message here... यहाँ अपना संदेश लिखें..." required autocomplete="off">
+                    <button type="submit" class="btn btn-primary" id="sendButton">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Mobile Sidebar Offcanvas -->
+<div class="offcanvas offcanvas-start" tabindex="-1" id="sidebarOffcanvas">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title">Serenity</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div class="sidebar-content">
+            <div class="disclaimer-card">
+                <h6><i class="fas fa-info-circle"></i> Important Notice</h6>
+                <p class="small">I'm an AI assistant designed to help with stress and meditation. I'm not a therapist or medical professional.</p>
+            </div>
+            
+            <div class="quick-actions">
+                <h6>Quick Actions</h6>
+                <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="startQuickMeditation()">
+                    <i class="fas fa-leaf"></i> Quick Meditation
+                </button>
+                <button class="btn btn-outline-secondary btn-sm w-100 mb-2" onclick="getStressTip()">
+                    <i class="fas fa-heart"></i> Stress Relief Tip
+                </button>
+                <button class="btn btn-outline-info btn-sm w-100 mb-2" onclick="showResources()">
+                    <i class="fas fa-phone"></i> Get Help Resources
+                </button>
+            </div>
+            
+            <div class="language-selector mt-4">
+                <h6>Language • भाषा</h6>
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="mobileLanguage" id="mobileEnglish" value="en" checked>
+                    <label class="btn btn-outline-primary btn-sm" for="mobileEnglish">English</label>
+                    
+                    <input type="radio" class="btn-check" name="mobileLanguage" id="mobileHindi" value="hi">
+                    <label class="btn btn-outline-primary btn-sm" for="mobileHindi">हिंदी</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Meditation Modal -->
+<div class="modal fade" id="meditationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Guided Meditation Session</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="meditationContent">
+                    <!-- Meditation content will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="nextMeditationStep">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resources Modal -->
+<div class="modal fade" id="resourcesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Mental Health Resources</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="resourcesContent">
+                    <!-- Resources content will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}

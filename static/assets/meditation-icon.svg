@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1B8B42;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2BA856;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="4" stdDeviation="3" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  
+  <!-- Outer circle (meditation aura) -->
+  <circle cx="50" cy="50" r="45" fill="none" stroke="url(#leafGradient)" stroke-width="2" opacity="0.3">
+    <animate attributeName="r" values="43;47;43" dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.2;0.4;0.2" dur="4s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Middle circle -->
+  <circle cx="50" cy="50" r="35" fill="none" stroke="url(#leafGradient)" stroke-width="1.5" opacity="0.5">
+    <animate attributeName="r" values="33;37;33" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.3;0.6;0.3" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Main leaf shape -->
+  <path d="M50 15 C65 25, 75 40, 65 55 C55 70, 45 70, 35 55 C25 40, 35 25, 50 15 Z" 
+        fill="url(#leafGradient)" 
+        filter="url(#shadow)">
+    <animateTransform attributeName="transform" 
+                      attributeType="XML" 
+                      type="rotate" 
+                      values="0 50 50;5 50 50;0 50 50;-5 50 50;0 50 50" 
+                      dur="6s" 
+                      repeatCount="indefinite"/>
+  </path>
+  
+  <!-- Leaf vein -->
+  <path d="M50 20 Q52 35 50 50 Q48 65 50 70" 
+        fill="none" 
+        stroke="rgba(255,255,255,0.6)" 
+        stroke-width="1.5" 
+        stroke-linecap="round"/>
+  
+  <!-- Side veins -->
+  <path d="M45 30 Q50 35 45 40" 
+        fill="none" 
+        stroke="rgba(255,255,255,0.4)" 
+        stroke-width="1" 
+        stroke-linecap="round"/>
+  <path d="M55 30 Q50 35 55 40" 
+        fill="none" 
+        stroke="rgba(255,255,255,0.4)" 
+        stroke-width="1" 
+        stroke-linecap="round"/>
+  
+  <!-- Meditation dots (chakra points) -->
+  <circle cx="50" cy="30" r="2" fill="white" opacity="0.8">
+    <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="50" cy="40" r="2" fill="white" opacity="0.6">
+    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2.5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="50" cy="50" r="2" fill="white" opacity="0.7">
+    <animate attributeName="opacity" values="0.4;0.9;0.4" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Floating particles for zen effect -->
+  <circle cx="30" cy="25" r="1" fill="url(#leafGradient)" opacity="0.6">
+    <animateTransform attributeName="transform" 
+                      type="translate" 
+                      values="0,0;5,-10;0,0" 
+                      dur="8s" 
+                      repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="8s" repeatCount="indefinite"/>
+  </circle>
+  
+  <circle cx="70" cy="35" r="1.5" fill="url(#leafGradient)" opacity="0.5">
+    <animateTransform attributeName="transform" 
+                      type="translate" 
+                      values="0,0;-8,5;0,0" 
+                      dur="10s" 
+                      repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.2;0.7;0.2" dur="10s" repeatCount="indefinite"/>
+  </circle>
+  
+  <circle cx="25" cy="65" r="1" fill="url(#leafGradient)" opacity="0.4">
+    <animateTransform attributeName="transform" 
+                      type="translate" 
+                      values="0,0;10,8;0,0" 
+                      dur="12s" 
+                      repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.2;0.6;0.2" dur="12s" repeatCount="indefinite"/>
+  </circle>
+</svg>
