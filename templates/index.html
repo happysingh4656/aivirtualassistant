@@ -100,14 +100,17 @@
             <form id="chatForm" class="chat-form">
                 <div class="input-group">
                     <input type="text" id="messageInput" class="form-control" placeholder="Type your message here... यहाँ अपना संदेश लिखें..." required autocomplete="off">
+                    <button type="button" id="testVoiceButton" class="btn btn-outline-info px-3" disabled>
+                        <i class="fas fa-vial"></i>
+                    </button>
+                    <button type="button" id="conversationModeButton" class="btn btn-outline-primary px-3" disabled>
+                        <i class="fas fa-comment"></i>
+                    </button>
                     <button type="button" id="voiceButton" class="btn btn-outline-primary px-3" disabled>
                         <i class="fas fa-microphone"></i>
                     </button>
-                    <button type="button" id="speakerButton" class="btn btn-outline-secondary px-3" disabled>
-                        <i class="fas fa-volume-mute"></i>
-                    </button>
-                    <button type="button" id="testVoiceButton" class="btn btn-outline-info px-3" disabled>
-                        <i class="fas fa-vial"></i>
+                    <button type="button" id="speakerButton" class="btn btn-success px-3" disabled>
+                        <i class="fas fa-volume-up"></i>
                     </button>
                     <button type="submit" class="btn btn-primary px-3" id="sendButton">
                         <i class="fas fa-paper-plane"></i>

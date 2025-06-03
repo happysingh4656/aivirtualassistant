@@ -30,10 +30,13 @@ class SerenityChat {
         this.audioChunks = [];
         this.voiceAvailable = false;
         this.currentLanguage = 'en';
+        this.continuousMode = false;
+        this.speakerMode = true; // Default to enabled for conversational experience
 
         this.initializeEventListeners();
         this.initializeVoiceFeatures();
         this.focusInput();
+        this.showWelcomeMessage();
     }
 
     initializeEventListeners() {
@@ -69,6 +72,12 @@ class SerenityChat {
         this.testVoiceButton = document.getElementById('testVoiceButton');
         if (this.testVoiceButton) {
             this.testVoiceButton.addEventListener('click', () => this.testVoiceFunctionality());
+        }
+
+        // Conversation mode button
+        this.conversationModeButton = document.getElementById('conversationModeButton');
+        if (this.conversationModeButton) {
+            this.conversationModeButton.addEventListener('click', () => this.toggleConversationMode());
         }
     }
 
@@ -436,6 +445,14 @@ class SerenityChat {
         if (this.speakerButton) {
             this.speakerButton.disabled = !status.available;
         }
+
+        if (this.conversationModeButton) {
+            this.conversationModeButton.disabled = !status.available;
+        }
+
+        if (this.testVoiceButton) {
+            this.testVoiceButton.disabled = !status.available;
+        }
     }
 
     async toggleVoiceRecording() {
@@ -642,7 +659,6 @@ class SerenityChat {
             console.log('Audio converted to base64, length:', audioBase64.length);
 
             this.showTypingIndicator();
-            this.addMessage('🔄 Processing voice input...', 'assistant');
 
             // Send to speech-to-text endpoint with better error handling
             const response = await fetch('/voice/speech-to-text', {
@@ -670,13 +686,10 @@ class SerenityChat {
             }
 
             if (data.success && data.text && data.text.trim()) {
-                // Clear the input first
-                this.messageInput.value = '';
-                
                 // Add recognized text to chat
-                this.addMessage(`📝 You said: "${data.text}"`, 'user');
+                this.addMessage(data.text, 'user');
 
-                // Process the message
+                // Process the message automatically
                 await this.sendVoiceMessage(data.text);
             } else {
                 const errorMsg = data.error || 'Could not understand speech. Please try again or speak more clearly.';
@@ -687,16 +700,20 @@ class SerenityChat {
             console.error('Voice processing error:', error);
             let errorMessage = 'Error processing voice input. ';
             
-            if (error.message.includes('HTTP 503') || error.message.includes('Service Unavailable')) {
-                errorMessage += 'Voice service is not available on this server.';
-            } else if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
-                errorMessage += 'Please check your internet connection and try again.';
-            } else if (error.message.includes('No audio data')) {
-                errorMessage = error.message;
-            } else if (error.message.includes('conversion failed')) {
-                errorMessage = error.message;
+            if (error.message && typeof error.message === 'string') {
+                if (error.message.includes('HTTP 503') || error.message.includes('Service Unavailable')) {
+                    errorMessage += 'Voice service is not available on this server.';
+                } else if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
+                    errorMessage += 'Please check your internet connection and try again.';
+                } else if (error.message.includes('No audio data')) {
+                    errorMessage = error.message;
+                } else if (error.message.includes('conversion failed')) {
+                    errorMessage = error.message;
+                } else {
+                    errorMessage += error.message;
+                }
             } else {
-                errorMessage += `${error.message || 'Please try again.'}`;
+                errorMessage += 'Please try again.';
             }
             
             this.addMessage(errorMessage, 'assistant', { error: true });
@@ -796,6 +813,8 @@ class SerenityChat {
 
     async sendVoiceMessage(message) {
         try {
+            this.showTypingIndicator();
+            
             const response = await fetch('/chat', {
                 method: 'POST',
                 headers: {
@@ -813,19 +832,32 @@ class SerenityChat {
                     crisisDetected: data.crisis_detected
                 });
 
-                // Auto-speak response if speaker mode is enabled
-                if (this.speakerMode) {
-                    await this.speakText(data.response, data.language);
-                }
+                // Always speak response in voice conversation mode
+                await this.speakText(data.response, data.language);
 
                 // Handle special response types
                 if (data.session_type === 'meditation_offer') {
                     this.handleMeditationOffer();
                 }
+
+                // Enable continuous conversation mode
+                if (this.continuousMode) {
+                    setTimeout(() => {
+                        this.promptForNextInput();
+                    }, 2000);
+                }
             }
         } catch (error) {
             console.error('Voice message error:', error);
             this.addMessage('Error processing voice message.', 'assistant', { error: true });
+        } finally {
+            this.hideTypingIndicator();
+        }
+    }
+
+    promptForNextInput() {
+        if (this.voiceAvailable && !this.isRecording) {
+            this.addMessage('🎤 Ready for your next message. Click the microphone to continue.', 'assistant');
         }
     }
 
@@ -971,6 +1003,35 @@ class SerenityChat {
             this.testVoiceButton.title = 'Test Voice';
             this.testVoiceButton.disabled = !this.voiceAvailable;
         }
+    }
+
+    toggleConversationMode() {
+        this.continuousMode = !this.continuousMode;
+
+        if (this.conversationModeButton) {
+            if (this.continuousMode) {
+                this.conversationModeButton.innerHTML = '<i class="fas fa-comments"></i>';
+                this.conversationModeButton.className = 'btn btn-success';
+                this.conversationModeButton.title = 'Conversation Mode: On';
+                this.addMessage('💬 Conversation mode enabled. I\'ll prompt you for continuous voice interaction.', 'assistant');
+                
+                // Auto-enable speaker mode
+                if (!this.speakerMode) {
+                    this.toggleSpeakerMode();
+                }
+            } else {
+                this.conversationModeButton.innerHTML = '<i class="fas fa-comment"></i>';
+                this.conversationModeButton.className = 'btn btn-outline-primary';
+                this.conversationModeButton.title = 'Conversation Mode: Off';
+                this.addMessage('💬 Conversation mode disabled.', 'assistant');
+            }
+        }
+    }
+
+    showWelcomeMessage() {
+        setTimeout(() => {
+            this.addMessage('Welcome to Serenity! 🌿\n\nFor the best conversational AI experience:\n\n• Click the **Conversation Mode** button (💬) to enable continuous voice chat\n• Use the **Voice** button (🎤) to start speaking\n• I\'ll respond with both text and voice automatically\n\nFeel free to speak with me in English or Hindi. How are you feeling today?', 'assistant');
+        }, 1000);
     }
 }
 
