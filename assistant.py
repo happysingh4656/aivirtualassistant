@@ -235,16 +235,28 @@ class MentalHealthAssistant:
         session['user_language'] = confirmed_language
         session['language_confirmed'] = True
         
-        # Generate confirmation response with conversation starter
-        if confirmed_language == 'en':
-            response = f"Perfect! I'll communicate with you in English. 😊\n\nNow, let me introduce myself properly - I'm Serenity, your AI mental health companion. I'm here to provide:\n\n🧘‍♀️ Guided meditation sessions\n💨 Breathing exercises\n💡 Stress relief techniques\n🤗 Empathetic conversation\n📞 Mental health resources\n\n**To get started, how are you feeling today?** Are you experiencing any stress, anxiety, or would you simply like to have a mindful conversation?"
+        # Check if this is a voice conversation mode (detect from context)
+        is_voice_mode = any(phrase in message_lower for phrase in ['communicate in', 'would like to communicate', 'voice conversation'])
+        
+        # Generate confirmation response based on mode
+        if is_voice_mode:
+            # Voice conversation mode - more conversational and prompting
+            if confirmed_language == 'en':
+                response = f"Perfect! I'll speak with you in English. 😊\n\nHello! I'm Serenity, your AI mental health companion. I'm here to have a caring conversation with you and provide support through:\n\n🧘‍♀️ Guided meditation\n💨 Breathing exercises\n💡 Stress relief techniques\n🤗 Empathetic listening\n\n**Now, tell me - how are you feeling today?** I'm here to listen and support you through whatever you're experiencing."
+            else:
+                response = f"बहुत अच्छा! मैं आपसे हिंदी में बात करूंगी। 😊\n\nनमस्ते! मैं Serenity हूँ, आपकी AI मानसिक स्वास्थ्य साथी। मैं यहाँ आपसे प्रेमपूर्ण बातचीत करने और सहारा देने के लिए हूँ:\n\n🧘‍♀️ गाइडेड मेडिटेशन\n💨 सांस की एक्सरसाइज\n💡 तनाव मुक्ति की तकनीकें\n🤗 सहानुभूतिपूर्ण सुनना\n\n**अब मुझे बताइए - आज आप कैसा महसूस कर रहे हैं?** मैं यहाँ सुनने और आपके अनुभवों में आपका साथ देने के लिए हूँ।"
         else:
-            response = f"बहुत अच्छा! मैं आपसे हिंदी में बात करूंगी। 😊\n\nअब मैं अपना परिचय देती हूँ - मैं Serenity हूँ, आपकी AI मानसिक स्वास्थ्य साथी। मैं यहाँ हूँ आपको देने के लिए:\n\n🧘‍♀️ गाइडेड मेडिटेशन सेशन\n💨 सांस की एक्सरसाइज\n💡 तनाव मुक्ति की तकनीकें\n🤗 समझदारी भरी बातचीत\n📞 मानसिक स्वास्थ्य संसाधन\n\n**शुरुआत करने के लिए, आज आप कैसा महसूस कर रहे हैं?** क्या आप कोई तनाव, चिंता महसूस कर रहे हैं, या आप बस एक मनपूर्ण बातचीत करना चाहते हैं?"
+            # Text chat mode - more structured
+            if confirmed_language == 'en':
+                response = f"Perfect! I'll communicate with you in English. 😊\n\nNow, let me introduce myself properly - I'm Serenity, your AI mental health companion. I'm here to provide:\n\n🧘‍♀️ Guided meditation sessions\n💨 Breathing exercises\n💡 Stress relief techniques\n🤗 Empathetic conversation\n📞 Mental health resources\n\n**To get started, how are you feeling today?** Are you experiencing any stress, anxiety, or would you simply like to have a mindful conversation?"
+            else:
+                response = f"बहुत अच्छा! मैं आपसे हिंदी में बात करूंगी। 😊\n\nअब मैं अपना परिचय देती हूँ - मैं Serenity हूँ, आपकी AI मानसिक स्वास्थ्य साथी। मैं यहाँ हूँ आपको देने के लिए:\n\n🧘‍♀️ गाइडेड मेडिटेशन सेशन\n💨 सांस की एक्सरसाइज\n💡 तनाव मुक्ति की तकनीकें\n🤗 समझदारी भरी बातचीत\n📞 मानसिक स्वास्थ्य संसाधन\n\n**शुरुआत करने के लिए, आज आप कैसा महसूस कर रहे हैं?** क्या आप कोई तनाव, चिंता महसूस कर रहे हैं, या आप बस एक मनपूर्ण बातचीत करना चाहते हैं?"
         
         return {
             'message': response,
             'language': confirmed_language,
-            'session_type': 'language_confirmed'
+            'session_type': 'language_confirmed',
+            'voice_mode': is_voice_mode
         }
     
     def get_proactive_follow_up(self, emotion, language):

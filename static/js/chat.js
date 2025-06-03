@@ -32,6 +32,10 @@ class SerenityChat {
         this.currentLanguage = 'en';
         this.continuousMode = false;
         this.speakerMode = true; // Default to enabled for conversational experience
+        
+        // Conversation mode state
+        this.selectedMode = null; // 'voice' or 'text'
+        this.voiceConversationPending = false;
 
         this.initializeEventListeners();
         this.initializeVoiceFeatures();
@@ -390,8 +394,31 @@ class SerenityChat {
             radio.checked = radio.value === selectedLang;
         });
 
-        // You could add a message about language change here
+        this.currentLanguage = selectedLang;
+        
+        // If voice conversation is pending and language is selected, start voice conversation
+        if (this.voiceConversationPending && this.selectedMode === 'voice') {
+            this.voiceConversationPending = false;
+            this.startVoiceConversation(selectedLang);
+        }
+        
         console.log('Language changed to:', selectedLang);
+    }
+
+    startVoiceConversation(language) {
+        // Send language confirmation to assistant
+        const languageName = language === 'en' ? 'English' : 'Hindi';
+        const confirmationMessage = `I would like to communicate in ${languageName}`;
+        
+        // Send message to assistant to confirm language and start voice mode
+        this.sendVoiceMessage(confirmationMessage);
+        
+        // Enable continuous conversation mode automatically
+        setTimeout(() => {
+            if (!this.continuousMode) {
+                this.toggleConversationMode();
+            }
+        }, 3000);
     }
 
     handleMeditationOffer() {
@@ -1047,8 +1074,109 @@ class SerenityChat {
 
     showWelcomeMessage() {
         setTimeout(() => {
-            this.addMessage('🙏 Hello! मैं Serenity हूँ - I\'m Serenity, your bilingual mental health companion.\n\nBefore we begin, I\'d like to know: **Would you prefer to communicate in English or Hindi?** (क्या आप अंग्रेजी या हिंदी में बात करना पसंद करेंगे?)\n\nPlease select your preferred language above, or simply tell me "English" or "Hindi" / "अंग्रेजी" या "हिंदी".\n\nOnce you confirm your language, I\'ll guide you through our conversation experience! 😊', 'assistant');
+            this.showConversationModeModal();
         }, 1000);
+    }
+
+    showConversationModeModal() {
+        // Create and show the conversation mode selection modal
+        const modalHtml = `
+            <div class="modal fade" id="conversationModeModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">🙏 Welcome to Serenity</h5>
+                        </div>
+                        <div class="modal-body text-center">
+                            <div class="mb-4">
+                                <img src="/static/assets/meditation-icon.svg" alt="Serenity" style="width: 60px; height: 60px;" class="mb-3">
+                                <h6>Your Bilingual Mental Health Companion</h6>
+                                <p class="text-muted">आपका द्विभाषी मानसिक स्वास्थ्य साथी</p>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <h6>How would you like to communicate?</h6>
+                                <p class="small text-muted">आप कैसे बातचीत करना चाहेंगे?</p>
+                            </div>
+                            
+                            <div class="d-grid gap-3">
+                                <button type="button" class="btn btn-success btn-lg" onclick="serenityChat.selectConversationMode('voice')">
+                                    <i class="fas fa-microphone me-2"></i>
+                                    Voice Conversation
+                                    <br><small class="text-light">आवाज़ से बातचीत</small>
+                                </button>
+                                <button type="button" class="btn btn-primary btn-lg" onclick="serenityChat.selectConversationMode('text')">
+                                    <i class="fas fa-keyboard me-2"></i>
+                                    Text Chat
+                                    <br><small class="text-light">टेक्स्ट चैट</small>
+                                </button>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    💡 You can switch between modes anytime during our conversation
+                                    <br>बातचीत के दौरान आप कभी भी मोड बदल सकते हैं
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('conversationModeModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('conversationModeModal'));
+        modal.show();
+    }
+
+    selectConversationMode(mode) {
+        // Close the modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('conversationModeModal'));
+        modal.hide();
+        
+        // Remove modal from DOM
+        setTimeout(() => {
+            const modalElement = document.getElementById('conversationModeModal');
+            if (modalElement) {
+                modalElement.remove();
+            }
+        }, 300);
+        
+        // Set conversation mode
+        this.selectedMode = mode;
+        
+        if (mode === 'voice') {
+            // Enable voice features and show voice welcome
+            this.showVoiceWelcome();
+        } else {
+            // Show text chat welcome
+            this.showTextWelcome();
+        }
+    }
+
+    showVoiceWelcome() {
+        this.addMessage('🎤 **Voice Mode Selected!**\n\n🙏 Hello! मैं Serenity हूँ - I\'m Serenity, your bilingual mental health companion.\n\n**Before we begin our voice conversation, please select your preferred language:**\n\n• Click "English" for English conversation\n• Click "हिंदी" for Hindi conversation\n• अंग्रेजी के लिए "English" पर क्लिक करें\n• हिंदी बातचीत के लिए "हिंदी" पर क्लिक करें\n\nOnce you select your language, I\'ll start our voice conversation! 🎙️', 'assistant');
+        
+        // Auto-enable speaker mode for voice conversation
+        if (!this.speakerMode) {
+            this.toggleSpeakerMode();
+        }
+        
+        // Enable conversation mode after language selection
+        this.voiceConversationPending = true;
+    }
+
+    showTextWelcome() {
+        this.addMessage('💬 **Text Chat Mode Selected!**\n\n🙏 Hello! मैं Serenity हूँ - I\'m Serenity, your bilingual mental health companion.\n\nBefore we begin, I\'d like to know: **Would you prefer to communicate in English or Hindi?** (क्या आप अंग्रेजी या हिंदी में बात करना पसंद करेंगे?)\n\nPlease select your preferred language above, or simply tell me "English" or "Hindi" / "अंग्रेजी" या "हिंदी".\n\nOnce you confirm your language, we can start our conversation! 😊', 'assistant');
     }
 }
 
