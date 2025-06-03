@@ -699,14 +699,14 @@ class SerenityChat {
         } catch (error) {
             console.error('Voice processing error:', error);
             console.error('Error details:', {
-                name: error.name,
-                message: error.message,
-                stack: error.stack
+                name: error?.name || 'Unknown',
+                message: error?.message || 'Unknown error',
+                stack: error?.stack || 'No stack trace'
             });
             
             let errorMessage = 'Error processing voice input. ';
             
-            if (error.message && typeof error.message === 'string') {
+            if (error && error.message && typeof error.message === 'string') {
                 if (error.message.includes('HTTP 503') || error.message.includes('Service Unavailable')) {
                     errorMessage += 'Voice service is not available on this server.';
                 } else if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
@@ -718,8 +718,10 @@ class SerenityChat {
                 } else {
                     errorMessage += error.message;
                 }
+            } else if (error && typeof error === 'string') {
+                errorMessage += error;
             } else {
-                errorMessage += 'Please try again.';
+                errorMessage += 'Unknown error occurred. Please try speaking again.';
             }
             
             this.addMessage(errorMessage, 'assistant', { error: true });
@@ -838,19 +840,28 @@ class SerenityChat {
                     crisisDetected: data.crisis_detected
                 });
 
-                // Always speak response in voice conversation mode
-                await this.speakText(data.response, data.language);
+                // Always speak response if speaker mode is enabled
+                if (this.speakerMode) {
+                    await this.speakText(data.response, data.language);
+                }
 
                 // Handle special response types
                 if (data.session_type === 'meditation_offer') {
                     this.handleMeditationOffer();
+                } else if (data.session_type === 'language_confirmed') {
+                    // After language confirmation, enable conversation mode automatically
+                    if (!this.continuousMode) {
+                        setTimeout(() => {
+                            this.toggleConversationMode();
+                        }, 2000);
+                    }
                 }
 
-                // Enable continuous conversation mode
-                if (this.continuousMode) {
+                // Enable continuous conversation mode with longer delay for user to process
+                if (this.continuousMode && !data.crisis_detected) {
                     setTimeout(() => {
                         this.promptForNextInput();
-                    }, 2000);
+                    }, 4000);
                 }
             }
         } catch (error) {
@@ -1036,7 +1047,7 @@ class SerenityChat {
 
     showWelcomeMessage() {
         setTimeout(() => {
-            this.addMessage('Welcome to Serenity! 🌿\n\nFor the best conversational AI experience:\n\n• Click the **Conversation Mode** button (💬) to enable continuous voice chat\n• Use the **Voice** button (🎤) to start speaking\n• I\'ll respond with both text and voice automatically\n\nFeel free to speak with me in English or Hindi. How are you feeling today?', 'assistant');
+            this.addMessage('🙏 Hello! मैं Serenity हूँ - I\'m Serenity, your bilingual mental health companion.\n\nBefore we begin, I\'d like to know: **Would you prefer to communicate in English or Hindi?** (क्या आप अंग्रेजी या हिंदी में बात करना पसंद करेंगे?)\n\nPlease select your preferred language above, or simply tell me "English" or "Hindi" / "अंग्रेजी" या "हिंदी".\n\nOnce you confirm your language, I\'ll guide you through our conversation experience! 😊', 'assistant');
         }, 1000);
     }
 }

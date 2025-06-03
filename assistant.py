@@ -140,6 +140,11 @@ class MentalHealthAssistant:
         try:
             # Detect language
             detected_language = self.detect_language(message)
+            
+            # Check if this is language confirmation
+            if not session.get('language_confirmed', False):
+                return self.handle_language_confirmation(message, detected_language, session)
+            
             session['user_language'] = detected_language
             
             # Check for crisis
@@ -176,13 +181,17 @@ class MentalHealthAssistant:
                     'session_type': 'meditation_offer'
                 }
             
-            # Generate empathetic response
+            # Generate empathetic response with proactive follow-up
             response = self.get_empathetic_response(emotion, detected_language)
             
             # Add stress relief suggestions
             if emotion in ['stressed', 'anxious', 'sad']:
                 stress_relief = self.get_stress_relief_tip(detected_language)
                 response += f"\n\n{stress_relief}"
+            
+            # Add proactive follow-up questions
+            follow_up = self.get_proactive_follow_up(emotion, detected_language)
+            response += f"\n\n{follow_up}"
             
             return {
                 'message': response,
@@ -204,6 +213,59 @@ class MentalHealthAssistant:
                 'message': fallback_responses[user_language],
                 'language': user_language
             }
+    
+    def handle_language_confirmation(self, message, detected_language, session):
+        """Handle language confirmation from user"""
+        message_lower = message.lower()
+        
+        # Check for language preference keywords
+        english_keywords = ['english', 'eng', 'en', 'अंग्रेजी']
+        hindi_keywords = ['hindi', 'hin', 'hi', 'हिंदी', 'हिन्दी']
+        
+        confirmed_language = None
+        
+        if any(keyword in message_lower for keyword in english_keywords):
+            confirmed_language = 'en'
+        elif any(keyword in message_lower for keyword in hindi_keywords):
+            confirmed_language = 'hi'
+        else:
+            # Use detected language if no explicit preference
+            confirmed_language = detected_language
+        
+        session['user_language'] = confirmed_language
+        session['language_confirmed'] = True
+        
+        # Generate confirmation response with conversation starter
+        if confirmed_language == 'en':
+            response = f"Perfect! I'll communicate with you in English. 😊\n\nNow, let me introduce myself properly - I'm Serenity, your AI mental health companion. I'm here to provide:\n\n🧘‍♀️ Guided meditation sessions\n💨 Breathing exercises\n💡 Stress relief techniques\n🤗 Empathetic conversation\n📞 Mental health resources\n\n**To get started, how are you feeling today?** Are you experiencing any stress, anxiety, or would you simply like to have a mindful conversation?"
+        else:
+            response = f"बहुत अच्छा! मैं आपसे हिंदी में बात करूंगी। 😊\n\nअब मैं अपना परिचय देती हूँ - मैं Serenity हूँ, आपकी AI मानसिक स्वास्थ्य साथी। मैं यहाँ हूँ आपको देने के लिए:\n\n🧘‍♀️ गाइडेड मेडिटेशन सेशन\n💨 सांस की एक्सरसाइज\n💡 तनाव मुक्ति की तकनीकें\n🤗 समझदारी भरी बातचीत\n📞 मानसिक स्वास्थ्य संसाधन\n\n**शुरुआत करने के लिए, आज आप कैसा महसूस कर रहे हैं?** क्या आप कोई तनाव, चिंता महसूस कर रहे हैं, या आप बस एक मनपूर्ण बातचीत करना चाहते हैं?"
+        
+        return {
+            'message': response,
+            'language': confirmed_language,
+            'session_type': 'language_confirmed'
+        }
+    
+    def get_proactive_follow_up(self, emotion, language):
+        """Get proactive follow-up questions based on emotion"""
+        follow_ups = {
+            'en': {
+                'stressed': "What's been the main source of your stress lately? Sometimes talking about it can help lighten the load.",
+                'sad': "I'm here to listen. Would you like to share what's been bringing you down, or would you prefer we focus on some uplifting activities?",
+                'anxious': "Anxiety can be overwhelming. Would you like to try a quick breathing exercise, or would you prefer to talk about what's making you feel anxious?",
+                'default': "I'd love to know more about you. What brings you joy in your daily life? Or is there something specific you'd like support with today?"
+            },
+            'hi': {
+                'stressed': "हाल ही में आपके तनाव का मुख्य कारण क्या रहा है? कभी-कभी इसके बारे में बात करने से मन हल्का हो जाता है।",
+                'sad': "मैं यहाँ सुनने के लिए हूँ। क्या आप साझा करना चाहेंगे कि आपको क्या परेशान कर रहा है, या आप चाहेंगे कि हम कुछ उत्साहजनक गतिविधियों पर ध्यान दें?",
+                'anxious': "चिंता भारी हो सकती है। क्या आप एक त्वरित सांस की एक्सरसाइज करना चाहेंगे, या आप इस बारे में बात करना पसंद करेंगे कि आपको क्या चिंतित कर रहा है?",
+                'default': "मैं आपके बारे में और जानना चाहूंगी। आपके दैनिक जीवन में आपको क्या खुशी देता है? या आज कोई खास बात है जिसके लिए आपको सहारे की जरूरत है?"
+            }
+        }
+        
+        language_follow_ups = follow_ups.get(language, follow_ups['en'])
+        return language_follow_ups.get(emotion, language_follow_ups['default'])
     
     def get_meditation_options(self, language):
         """Get meditation session options"""
