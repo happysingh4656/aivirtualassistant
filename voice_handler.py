@@ -81,6 +81,7 @@ class VoiceHandler:
         try:
             # Convert base64 audio data to audio format
             audio_bytes = base64.b64decode(audio_data)
+            logging.info(f"Received audio data: {len(audio_bytes)} bytes")
             
             # Create temporary file
             with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
@@ -88,31 +89,70 @@ class VoiceHandler:
                 temp_file_path = temp_file.name
             
             try:
+                # Validate audio file first
+                if not self._validate_audio_file(temp_file_path):
+                    # Try to convert using pydub if available
+                    if AudioSegment:
+                        try:
+                            audio_segment = AudioSegment.from_file(temp_file_path)
+                            # Convert to proper format
+                            audio_segment = audio_segment.set_frame_rate(16000).set_channels(1)
+                            
+                            # Create new temporary file
+                            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as converted_file:
+                                converted_path = converted_file.name
+                            
+                            audio_segment.export(converted_path, format="wav")
+                            os.unlink(temp_file_path)
+                            temp_file_path = converted_path
+                            
+                            logging.info("Audio file converted successfully")
+                        except Exception as conv_error:
+                            logging.error(f"Audio conversion failed: {conv_error}")
+                            return None, "Invalid audio format. Please try recording again."
+                
                 # Load audio file
                 with sr.AudioFile(temp_file_path) as source:
                     # Adjust for ambient noise
                     self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
                     audio = self.recognizer.record(source)
+                    
+                    logging.info(f"Audio recorded for recognition: {len(audio.get_raw_data())} bytes")
                 
                 # Convert language code
                 google_lang = self.supported_languages.get(language, 'en-US')
                 
                 # Recognize speech using Google Speech Recognition
                 text = self.recognizer.recognize_google(audio, language=google_lang)
+                logging.info(f"Speech recognition successful: {text}")
                 
                 return text, None
                 
             finally:
                 # Clean up temporary file
-                os.unlink(temp_file_path)
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
                 
         except sr.UnknownValueError:
-            return None, "Could not understand audio"
+            logging.warning("Speech recognition could not understand audio")
+            return None, "Could not understand the audio. Please speak more clearly or try again."
         except sr.RequestError as e:
-            return None, f"Speech recognition service error: {e}"
+            logging.error(f"Speech recognition service error: {e}")
+            return None, f"Speech recognition service is currently unavailable: {e}"
         except Exception as e:
             logging.error(f"Speech to text error: {e}")
-            return None, f"Error processing audio: {e}"
+            return None, f"Error processing audio: {str(e)}"
+    
+    def _validate_audio_file(self, file_path):
+        """Validate if audio file can be read by speech_recognition"""
+        try:
+            with sr.AudioFile(file_path) as source:
+                # Try to read a small portion
+                self.recognizer.record(source, duration=0.1)
+            return True
+        except Exception as e:
+            logging.warning(f"Audio file validation failed: {e}")
+            return False
     
     def text_to_speech(self, text, language='en'):
         """Convert text to speech audio"""

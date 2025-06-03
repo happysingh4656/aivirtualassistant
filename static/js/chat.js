@@ -453,35 +453,93 @@ class SerenityChat {
 
     async startRecording() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    sampleRate: 16000,
+                    channelCount: 1,
+                    echoCancellation: true,
+                    noiseSuppression: true
+                }
+            });
 
-            this.mediaRecorder = new MediaRecorder(stream);
+            // Check if MediaRecorder supports WAV format
+            let mimeType = 'audio/wav';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'audio/webm;codecs=opus';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'audio/mp4';
+                }
+            }
+
+            this.mediaRecorder = new MediaRecorder(stream, { mimeType });
             this.audioChunks = [];
 
             this.mediaRecorder.ondataavailable = (event) => {
-                this.audioChunks.push(event.data);
+                if (event.data.size > 0) {
+                    this.audioChunks.push(event.data);
+                }
             };
 
             this.mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
-                await this.processVoiceInput(audioBlob);
+                try {
+                    const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+                    console.log('Audio blob created:', audioBlob.size, 'bytes, type:', audioBlob.type);
+                    
+                    if (audioBlob.size === 0) {
+                        throw new Error('No audio data recorded');
+                    }
+                    
+                    await this.processVoiceInput(audioBlob);
+                } catch (error) {
+                    console.error('Error processing recorded audio:', error);
+                    this.addMessage('Error processing recorded audio. Please try again.', 'assistant', { error: true });
+                } finally {
+                    // Stop all tracks
+                    stream.getTracks().forEach(track => track.stop());
+                }
+            };
 
-                // Stop all tracks
+            this.mediaRecorder.onerror = (event) => {
+                console.error('MediaRecorder error:', event.error);
+                this.addMessage('Recording error occurred. Please try again.', 'assistant', { error: true });
+                this.isRecording = false;
+                this.updateVoiceButtonState(false);
                 stream.getTracks().forEach(track => track.stop());
             };
 
-            this.mediaRecorder.start();
+            // Start recording with time slicing for better data handling
+            this.mediaRecorder.start(1000);
             this.isRecording = true;
 
             // Update UI
-            this.voiceButton.innerHTML = '<i class="fas fa-stop"></i>';
-            this.voiceButton.className = 'btn btn-danger';
-            this.voiceButton.title = 'Stop Recording';
+            this.updateVoiceButtonState(true);
             this.addMessage('🎤 Listening... Click the stop button when finished speaking.', 'assistant');
 
         } catch (error) {
             console.error('Recording error:', error);
-            this.addMessage('Unable to access microphone. Please check permissions.', 'assistant', { error: true });
+            let errorMessage = 'Unable to access microphone. ';
+            if (error.name === 'NotAllowedError') {
+                errorMessage += 'Please allow microphone access and try again.';
+            } else if (error.name === 'NotFoundError') {
+                errorMessage += 'No microphone found. Please connect a microphone.';
+            } else {
+                errorMessage += 'Please check your microphone settings and try again.';
+            }
+            this.addMessage(errorMessage, 'assistant', { error: true });
+        }
+    }
+
+    updateVoiceButtonState(isRecording) {
+        if (this.voiceButton) {
+            if (isRecording) {
+                this.voiceButton.innerHTML = '<i class="fas fa-stop"></i>';
+                this.voiceButton.className = 'btn btn-danger';
+                this.voiceButton.title = 'Stop Recording';
+            } else {
+                this.voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
+                this.voiceButton.className = 'btn btn-outline-primary';
+                this.voiceButton.title = 'Voice Input';
+            }
         }
     }
 
@@ -489,21 +547,24 @@ class SerenityChat {
         if (this.mediaRecorder && this.isRecording) {
             this.mediaRecorder.stop();
             this.isRecording = false;
-
-            // Update UI
-            this.voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
-            this.voiceButton.className = 'btn btn-outline-primary';
-            this.voiceButton.title = 'Voice Input';
+            this.updateVoiceButtonState(false);
         }
     }
 
     async processVoiceInput(audioBlob) {
         try {
+            console.log('Processing audio blob:', audioBlob.size, 'bytes, type:', audioBlob.type);
+            
+            // Convert audio blob to WAV format if needed
+            const wavBlob = await this.convertToWav(audioBlob);
+            console.log('Converted to WAV:', wavBlob.size, 'bytes');
+
             // Convert audio blob to base64
-            const audioBuffer = await audioBlob.arrayBuffer();
+            const audioBuffer = await wavBlob.arrayBuffer();
             const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
 
             this.showTypingIndicator();
+            this.addMessage('🔄 Processing voice input...', 'assistant');
 
             // Send to speech-to-text endpoint
             const response = await fetch('/voice/speech-to-text', {
@@ -518,7 +579,8 @@ class SerenityChat {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
             const data = await response.json();
@@ -528,20 +590,118 @@ class SerenityChat {
                 this.messageInput.value = '';
                 
                 // Add recognized text to chat
-                this.addMessage(data.text, 'user');
+                this.addMessage(`📝 You said: "${data.text}"`, 'user');
 
                 // Process the message
                 await this.sendVoiceMessage(data.text);
             } else {
-                this.addMessage(data.error || 'Could not understand speech. Please try again or speak more clearly.', 'assistant', { error: true });
+                const errorMsg = data.error || 'Could not understand speech. Please try again or speak more clearly.';
+                this.addMessage(`❌ ${errorMsg}`, 'assistant', { error: true });
             }
 
         } catch (error) {
             console.error('Voice processing error:', error);
-            this.addMessage('Error processing voice input. Please check your internet connection and try again.', 'assistant', { error: true });
+            let errorMessage = 'Error processing voice input. ';
+            if (error.message.includes('HTTP 503')) {
+                errorMessage += 'Voice service is not available on this server.';
+            } else if (error.message.includes('network')) {
+                errorMessage += 'Please check your internet connection and try again.';
+            } else {
+                errorMessage += 'Please try again.';
+            }
+            this.addMessage(errorMessage, 'assistant', { error: true });
         } finally {
             this.hideTypingIndicator();
         }
+    }
+
+    async convertToWav(audioBlob) {
+        try {
+            // If it's already WAV, return as is
+            if (audioBlob.type.includes('wav')) {
+                return audioBlob;
+            }
+
+            // Create audio context for conversion
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                sampleRate: 16000
+            });
+
+            // Convert blob to array buffer
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            
+            // Decode audio data
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            
+            // Convert to WAV format
+            const wavBuffer = this.audioBufferToWav(audioBuffer);
+            
+            audioContext.close();
+            
+            return new Blob([wavBuffer], { type: 'audio/wav' });
+        } catch (error) {
+            console.warn('Audio conversion failed, using original:', error);
+            return audioBlob;
+        }
+    }
+
+    audioBufferToWav(buffer) {
+        const numChannels = 1; // Force mono
+        const sampleRate = buffer.sampleRate;
+        const format = 1; // PCM
+        const bitDepth = 16;
+
+        const bytesPerSample = bitDepth / 8;
+        const blockAlign = numChannels * bytesPerSample;
+
+        // Get audio data and convert to mono if needed
+        let audioData;
+        if (buffer.numberOfChannels === 1) {
+            audioData = buffer.getChannelData(0);
+        } else {
+            // Mix down to mono
+            const left = buffer.getChannelData(0);
+            const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
+            audioData = new Float32Array(left.length);
+            for (let i = 0; i < left.length; i++) {
+                audioData[i] = (left[i] + right[i]) / 2;
+            }
+        }
+
+        const bufferLength = audioData.length;
+        const arrayBuffer = new ArrayBuffer(44 + bufferLength * bytesPerSample);
+        const view = new DataView(arrayBuffer);
+
+        // WAV header
+        const writeString = (offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        };
+
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + bufferLength * bytesPerSample, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, format, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * blockAlign, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitDepth, true);
+        writeString(36, 'data');
+        view.setUint32(40, bufferLength * bytesPerSample, true);
+
+        // Convert float samples to 16-bit PCM
+        let offset = 44;
+        for (let i = 0; i < bufferLength; i++) {
+            const sample = Math.max(-1, Math.min(1, audioData[i]));
+            view.setInt16(offset, sample * 0x7FFF, true);
+            offset += 2;
+        }
+
+        return arrayBuffer;
     }
 
     async sendVoiceMessage(message) {
