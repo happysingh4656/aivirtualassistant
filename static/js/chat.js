@@ -385,6 +385,244 @@ class SerenityChat {
             this.scrollToBottom();
         }, 1500);
     }
+    
+    async initializeVoiceFeatures() {
+        try {
+            // Check voice functionality status
+            const response = await fetch('/voice/status');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.voiceAvailable = data.status.available;
+                this.updateVoiceUI(data.status);
+            }
+            
+            // Request microphone permission
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    await navigator.mediaDevices.getUserMedia({ audio: true });
+                    console.log('Microphone access granted');
+                } catch (error) {
+                    console.warn('Microphone access denied:', error);
+                }
+            }
+        } catch (error) {
+            console.error('Voice initialization error:', error);
+            this.updateVoiceUI({ available: false });
+        }
+    }
+    
+    updateVoiceUI(status) {
+        if (this.voiceStatus) {
+            if (status.available) {
+                this.voiceStatus.innerHTML = '🎤 Voice Ready';
+                this.voiceStatus.className = 'badge bg-success ms-2';
+            } else {
+                this.voiceStatus.innerHTML = '🎤 Voice Unavailable';
+                this.voiceStatus.className = 'badge bg-warning ms-2';
+            }
+        }
+        
+        if (this.voiceButton) {
+            this.voiceButton.disabled = !status.available;
+        }
+        
+        if (this.speakerButton) {
+            this.speakerButton.disabled = !status.available;
+        }
+    }
+    
+    async toggleVoiceRecording() {
+        if (!this.voiceAvailable) {
+            this.addMessage('Voice functionality is not available on this server.', 'assistant', { error: true });
+            return;
+        }
+        
+        if (this.isRecording) {
+            await this.stopRecording();
+        } else {
+            await this.startRecording();
+        }
+    }
+    
+    async startRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            this.mediaRecorder = new MediaRecorder(stream);
+            this.audioChunks = [];
+            
+            this.mediaRecorder.ondataavailable = (event) => {
+                this.audioChunks.push(event.data);
+            };
+            
+            this.mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                await this.processVoiceInput(audioBlob);
+                
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+            };
+            
+            this.mediaRecorder.start();
+            this.isRecording = true;
+            
+            // Update UI
+            this.voiceButton.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
+            this.voiceButton.className = 'btn btn-danger btn-sm';
+            this.addMessage('🎤 Listening... Click "Stop Recording" when finished speaking.', 'assistant');
+            
+        } catch (error) {
+            console.error('Recording error:', error);
+            this.addMessage('Unable to access microphone. Please check permissions.', 'assistant', { error: true });
+        }
+    }
+    
+    async stopRecording() {
+        if (this.mediaRecorder && this.isRecording) {
+            this.mediaRecorder.stop();
+            this.isRecording = false;
+            
+            // Update UI
+            this.voiceButton.innerHTML = '<i class="fas fa-microphone"></i> Voice Input';
+            this.voiceButton.className = 'btn btn-outline-primary btn-sm';
+        }
+    }
+    
+    async processVoiceInput(audioBlob) {
+        try {
+            // Convert audio blob to base64
+            const audioBuffer = await audioBlob.arrayBuffer();
+            const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+            
+            this.showTypingIndicator();
+            
+            // Send to speech-to-text endpoint
+            const response = await fetch('/voice/speech-to-text', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    audio_data: audioBase64,
+                    language: this.currentLanguage
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.text) {
+                // Add recognized text to input and send
+                this.messageInput.value = data.text;
+                this.addMessage(data.text, 'user');
+                
+                // Process the message
+                await this.sendVoiceMessage(data.text);
+            } else {
+                this.addMessage(data.error || 'Could not understand speech. Please try again.', 'assistant', { error: true });
+            }
+            
+        } catch (error) {
+            console.error('Voice processing error:', error);
+            this.addMessage('Error processing voice input.', 'assistant', { error: true });
+        } finally {
+            this.hideTypingIndicator();
+        }
+    }
+    
+    async sendVoiceMessage(message) {
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.addMessage(data.response, 'assistant', {
+                    language: data.language,
+                    sessionType: data.session_type,
+                    crisisDetected: data.crisis_detected
+                });
+                
+                // Auto-speak response if speaker mode is enabled
+                if (this.speakerMode) {
+                    await this.speakText(data.response, data.language);
+                }
+                
+                // Handle special response types
+                if (data.session_type === 'meditation_offer') {
+                    this.handleMeditationOffer();
+                }
+            }
+        } catch (error) {
+            console.error('Voice message error:', error);
+            this.addMessage('Error processing voice message.', 'assistant', { error: true });
+        }
+    }
+    
+    async toggleSpeakerMode() {
+        this.speakerMode = !this.speakerMode;
+        
+        if (this.speakerButton) {
+            if (this.speakerMode) {
+                this.speakerButton.innerHTML = '<i class="fas fa-volume-up"></i> Speaker On';
+                this.speakerButton.className = 'btn btn-success btn-sm';
+                this.addMessage('🔊 Speaker mode enabled. Responses will be spoken aloud.', 'assistant');
+            } else {
+                this.speakerButton.innerHTML = '<i class="fas fa-volume-mute"></i> Speaker Off';
+                this.speakerButton.className = 'btn btn-outline-secondary btn-sm';
+                this.addMessage('🔇 Speaker mode disabled.', 'assistant');
+            }
+        }
+    }
+    
+    async speakText(text, language = 'en') {
+        if (!this.voiceAvailable) return;
+        
+        try {
+            const response = await fetch('/voice/text-to-speech', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: text,
+                    language: language
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.audio_data) {
+                // Convert base64 to audio blob and play
+                const audioData = atob(data.audio_data);
+                const audioArray = new Uint8Array(audioData.length);
+                for (let i = 0; i < audioData.length; i++) {
+                    audioArray[i] = audioData.charCodeAt(i);
+                }
+                
+                const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                
+                audio.play().catch(error => {
+                    console.error('Audio playback error:', error);
+                });
+                
+                // Clean up
+                audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                };
+            }
+        } catch (error) {
+            console.error('Text-to-speech error:', error);
+        }
+    }
 }
 
 // Quick action functions
