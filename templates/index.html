@@ -100,21 +100,22 @@
             <form id="chatForm" class="chat-form">
                 <div class="input-group">
                     <input type="text" id="messageInput" class="form-control" placeholder="Type your message here... यहाँ अपना संदेश लिखें..." required autocomplete="off">
-                    <div class="btn-group">
-                        <button type="button" id="voiceButton" class="btn btn-outline-primary btn-sm" disabled>
-                            <i class="fas fa-microphone"></i> Voice Input
-                        </button>
-                        <button type="button" id="speakerButton" class="btn btn-outline-secondary btn-sm" disabled>
-                            <i class="fas fa-volume-mute"></i> Speaker Off
-                        </button>
-                        <button type="button" id="testVoiceButton" class="btn btn-outline-info btn-sm" disabled>
-                            <i class="fas fa-vial"></i> Test Voice
-                        </button>
-                    </div>
+                    <button type="button" id="voiceButton" class="btn btn-outline-primary" disabled>
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button type="button" id="speakerButton" class="btn btn-outline-secondary" disabled>
+                        <i class="fas fa-volume-mute"></i>
+                    </button>
+                    <button type="button" id="testVoiceButton" class="btn btn-outline-info" disabled>
+                        <i class="fas fa-vial"></i>
+                    </button>
                     <button type="submit" class="btn btn-primary" id="sendButton">
                         <i class="fas fa-paper-plane"></i>
                     </button>
-                    <span id="voiceStatus" class="badge bg-warning ms-2">🎤 Voice Loading...</span></div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <span id="voiceStatus" class="badge bg-warning">🎤 Voice Loading...</span>
+                    <small class="text-muted">Voice Input • Speaker • Test Voice • Send</small>
                 </div>
             </form>
         </div>

@@ -474,9 +474,10 @@ class SerenityChat {
             this.isRecording = true;
 
             // Update UI
-            this.voiceButton.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
-            this.voiceButton.className = 'btn btn-danger btn-sm';
-            this.addMessage('🎤 Listening... Click "Stop Recording" when finished speaking.', 'assistant');
+            this.voiceButton.innerHTML = '<i class="fas fa-stop"></i>';
+            this.voiceButton.className = 'btn btn-danger';
+            this.voiceButton.title = 'Stop Recording';
+            this.addMessage('🎤 Listening... Click the stop button when finished speaking.', 'assistant');
 
         } catch (error) {
             console.error('Recording error:', error);
@@ -490,8 +491,9 @@ class SerenityChat {
             this.isRecording = false;
 
             // Update UI
-            this.voiceButton.innerHTML = '<i class="fas fa-microphone"></i> Voice Input';
-            this.voiceButton.className = 'btn btn-outline-primary btn-sm';
+            this.voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
+            this.voiceButton.className = 'btn btn-outline-primary';
+            this.voiceButton.title = 'Voice Input';
         }
     }
 
@@ -511,26 +513,32 @@ class SerenityChat {
                 },
                 body: JSON.stringify({
                     audio_data: audioBase64,
-                    language: this.currentLanguage
+                    language: this.currentLanguage || 'en'
                 })
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
             const data = await response.json();
 
-            if (data.success && data.text) {
-                // Add recognized text to input and send
-                this.messageInput.value = data.text;
+            if (data.success && data.text && data.text.trim()) {
+                // Clear the input first
+                this.messageInput.value = '';
+                
+                // Add recognized text to chat
                 this.addMessage(data.text, 'user');
 
                 // Process the message
                 await this.sendVoiceMessage(data.text);
             } else {
-                this.addMessage(data.error || 'Could not understand speech. Please try again.', 'assistant', { error: true });
+                this.addMessage(data.error || 'Could not understand speech. Please try again or speak more clearly.', 'assistant', { error: true });
             }
 
         } catch (error) {
             console.error('Voice processing error:', error);
-            this.addMessage('Error processing voice input.', 'assistant', { error: true });
+            this.addMessage('Error processing voice input. Please check your internet connection and try again.', 'assistant', { error: true });
         } finally {
             this.hideTypingIndicator();
         }
@@ -576,12 +584,14 @@ class SerenityChat {
 
         if (this.speakerButton) {
             if (this.speakerMode) {
-                this.speakerButton.innerHTML = '<i class="fas fa-volume-up"></i> Speaker On';
-                this.speakerButton.className = 'btn btn-success btn-sm';
+                this.speakerButton.innerHTML = '<i class="fas fa-volume-up"></i>';
+                this.speakerButton.className = 'btn btn-success';
+                this.speakerButton.title = 'Speaker On';
                 this.addMessage('🔊 Speaker mode enabled. Responses will be spoken aloud.', 'assistant');
             } else {
-                this.speakerButton.innerHTML = '<i class="fas fa-volume-mute"></i> Speaker Off';
-                this.speakerButton.className = 'btn btn-outline-secondary btn-sm';
+                this.speakerButton.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                this.speakerButton.className = 'btn btn-outline-secondary';
+                this.speakerButton.title = 'Speaker Off';
                 this.addMessage('🔇 Speaker mode disabled.', 'assistant');
             }
         }
@@ -707,7 +717,8 @@ class SerenityChat {
             this.addMessage('❌ Error running voice test. Please try again.', 'assistant', { error: true });
         } finally {
             // Reset button state
-            this.testVoiceButton.innerHTML = '<i class="fas fa-vial"></i> Test Voice';
+            this.testVoiceButton.innerHTML = '<i class="fas fa-vial"></i>';
+            this.testVoiceButton.title = 'Test Voice';
             this.testVoiceButton.disabled = !this.voiceAvailable;
         }
     }
