@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: serenity-assistant
+  labels:
+    app: serenity-assistant
+    environment: production
+    version: v1.0.0
+  annotations:
+    description: "Bilingual Mental Health Virtual Assistant Namespace"

@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: serenity-assistant
+  namespace: serenity-assistant
+  labels:
+    app: serenity-assistant
+    component: webapp
+    version: v1.0.0
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: serenity-assistant
+      component: webapp
+  template:
+    metadata:
+      labels:
+        app: serenity-assistant
+        component: webapp
+        version: v1.0.0
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: serenity-assistant
+        image: serenity-assistant:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        envFrom:
+        - configMapRef:
+            name: serenity-assistant-config
+        - secretRef:
+            name: serenity-assistant-secrets
+        env:
+        - name: PORT
+          value: "5000"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: serenity-assistant-secrets
+              key: DATABASE_URL
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: serenity-assistant-secrets
+              key: SESSION_SECRET
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: app-logs
+          mountPath: /app/logs
+      volumes:
+      - name: app-logs
+        emptyDir: {}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
