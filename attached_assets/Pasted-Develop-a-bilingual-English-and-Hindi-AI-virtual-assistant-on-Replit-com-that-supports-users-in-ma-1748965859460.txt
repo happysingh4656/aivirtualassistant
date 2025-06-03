@@ -1,0 +1,76 @@
+Develop a bilingual (English and Hindi) AI virtual assistant on Replit.com that supports users in managing mental stress and practicing meditation. The assistant should offer guided meditation sessions, stress-relief techniques, and empathetic responses, with seamless voice and text interactions in both languages. The solution should be scalable, culturally sensitive, and ethically designed, with a focus on user privacy and mental health safety.
+
+Requirements:
+
+Platform: Build the assistant using Replit.com’s Python environment, leveraging its cloud-based IDE for rapid prototyping. Account for Replit’s limitations (e.g., no direct microphone access in the free tier, limited audio output).
+Bilingual Functionality: Support English and Hindi for voice and text inputs/outputs, with automatic language detection and culturally appropriate responses.
+Core Features:
+Guided meditation sessions (e.g., breathing exercises, body scans, mindfulness prompts).
+Stress-relief tips (e.g., grounding techniques, gratitude exercises).
+Empathetic conversational responses tailored to user emotions.
+Crisis detection with referral to mental health resources (e.g., helplines).
+Interaction Modes:
+Voice input/output for immersive interaction (simulated in Replit via text or pre-recorded audio due to microphone limitations).
+Text-based chat as a fallback for accessibility.
+Scalability: Design the assistant to be deployable beyond Replit (e.g., to Heroku, AWS, or Vapi) for real-time voice support and persistent hosting.
+Ethical Considerations: Ensure user privacy, transparent AI disclaimers, and safe handling of sensitive mental health topics.
+APIs and Libraries: Use accessible Python libraries and APIs for speech recognition, text-to-speech, translation, and optional AI models for natural language processing.
+Detailed Specifications:
+
+Technology Stack:
+Programming Language: Python 3.x (compatible with Replit).
+Libraries:
+speechrecognition for voice input (use Google Speech Recognition API for free tier).
+pyttsx3 for offline text-to-speech (fallback for Replit; limited Hindi support).
+googletrans (unofficial) or Google Cloud Translate API for bilingual translation.
+Flask for a web-based text chat interface.
+Optional: Hugging Face transformers for lightweight NLP models (e.g., DistilBERT for sentiment analysis).
+External APIs (if budget allows):
+Google Cloud Speech-to-Text for robust speech recognition.
+Google Cloud Text-to-Speech or Murf AI for high-quality Hindi and English voices.
+Google Cloud Translate for reliable translations.
+Vapi for advanced voice agent deployment.
+Audio Enhancements: Integrate calming background music or binaural beats (e.g., via .mp3 files hosted in Replit or cloud storage).
+Core Features and Functionality:
+Guided Meditation:
+Offer sessions of varying lengths (e.g., 5, 10, 15 minutes).
+Include scripts for breathing exercises, body scans, and visualization (e.g., “Imagine a serene forest” in English; “एक शांत जंगल की कल्पना करें” in Hindi).
+Randomize scripts to keep sessions fresh.
+Stress Relief:
+Provide tips like “Take 5 deep breaths” or “Write down one positive thought.”
+Tailor tips based on user input (e.g., “I’m overwhelmed” → “Try a quick grounding exercise”).
+Language Handling:
+Automatically detect input language using googletrans’s detect function.
+Translate user inputs to English for processing if needed, then respond in the detected language.
+Ensure responses are culturally relevant (e.g., Hindi responses may reference Indian imagery like rivers or temples).
+Empathy and Sentiment Analysis:
+Analyze user input for emotional tone (e.g., stressed, sad) using a lightweight NLP model or keyword matching.
+Respond empathetically (e.g., “I’m here for you. Let’s try a calming exercise.”).
+Crisis Detection:
+Detect phrases indicating distress (e.g., “I can’t cope,” “मैं टूट गया हूँ”).
+Respond with helpline numbers (e.g., US: 1-800-273-8255; India: Vandrevala Foundation +91 9999666555) and a disclaimer to seek professional help.
+User Interface:
+Voice Mode:
+Simulate voice input in Replit using text or pre-recorded .wav files due to microphone limitations.
+Output audio via pyttsx3 or a cloud TTS API.
+For production, integrate WebRTC or deploy to Vapi for real-time voice.
+Text Mode:
+Build a web-based chat interface using Flask, hosted on Replit.
+Display a simple HTML page with a text input box and response area.
+Multimodal Support: Allow users to switch between voice and text modes.
+Sample Interaction Flow:
+User: Says or types “I’m stressed” or “मैं तनाव में हूँ.”
+Assistant: Detects language, responds with “I’m here to help. Let’s try a quick breathing exercise” (or Hindi equivalent).
+Assistant: Guides user through a 2-minute breathing session with soothing prompts.
+Assistant: Offers follow-up options (e.g., “Would you like another exercise or a stress relief tip?”).
+If crisis detected (e.g., “I feel hopeless”), respond with: “I’m not a professional, but I’m here to support you. Please consider calling [helpline number]. Would you like a calming exercise?”
+Ethical and Safety Guidelines:
+Privacy:
+Inform users that inputs may be processed by external APIs (e.g., Google Speech API).
+Use HTTPS for API calls and anonymize data where possible.
+Transparency:
+Include a startup message: “I’m an AI assistant designed to help with stress and meditation. I’m not a therapist.”
+Mental Health Safety:
+Avoid diagnosing or offering medical advice.
+Provide resources for professional help in both languages.
+Use positive, non-triggering language in all responses.
