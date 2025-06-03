@@ -3,6 +3,7 @@ import logging
 from flask import Flask, render_template, request, jsonify, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from assistant import MentalHealthAssistant
+from voice_handler import VoiceHandler
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -12,8 +13,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-# Initialize the mental health assistant
+# Initialize the mental health assistant and voice handler
 assistant = MentalHealthAssistant()
+voice_handler = VoiceHandler()
 
 @app.route('/')
 def index():
@@ -100,6 +102,118 @@ def get_resources():
         return jsonify({
             'success': False,
             'error': 'Unable to retrieve resources. Please try again.'
+        }), 500
+
+@app.route('/voice/speech-to-text', methods=['POST'])
+def speech_to_text():
+    """Convert speech audio to text"""
+    try:
+        if not voice_handler.is_available():
+            return jsonify({
+                'success': False,
+                'error': 'Voice functionality not available on this server'
+            }), 503
+        
+        data = request.get_json()
+        audio_data = data.get('audio_data')
+        language = data.get('language', 'en')
+        
+        if not audio_data:
+            return jsonify({
+                'success': False,
+                'error': 'No audio data provided'
+            }), 400
+        
+        # Convert speech to text
+        text, error = voice_handler.speech_to_text(audio_data, language)
+        
+        if error:
+            return jsonify({
+                'success': False,
+                'error': error
+            }), 400
+        
+        return jsonify({
+            'success': True,
+            'text': text,
+            'language': language
+        })
+        
+    except Exception as e:
+        logging.error(f"Speech to text error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Error processing speech input'
+        }), 500
+
+@app.route('/voice/text-to-speech', methods=['POST'])
+def text_to_speech():
+    """Convert text to speech audio"""
+    try:
+        if not voice_handler.is_available():
+            return jsonify({
+                'success': False,
+                'error': 'Voice functionality not available on this server'
+            }), 503
+        
+        data = request.get_json()
+        text = data.get('text', '').strip()
+        language = data.get('language', 'en')
+        
+        if not text:
+            return jsonify({
+                'success': False,
+                'error': 'No text provided'
+            }), 400
+        
+        # Convert text to speech
+        audio_data, error = voice_handler.text_to_speech(text, language)
+        
+        if error:
+            return jsonify({
+                'success': False,
+                'error': error
+            }), 400
+        
+        return jsonify({
+            'success': True,
+            'audio_data': audio_data,
+            'language': language
+        })
+        
+    except Exception as e:
+        logging.error(f"Text to speech error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Error generating speech output'
+        }), 500
+
+@app.route('/voice/status')
+def voice_status():
+    """Get voice functionality status"""
+    try:
+        status = {
+            'available': voice_handler.is_available(),
+            'speech_recognition': voice_handler.recognizer is not None,
+            'text_to_speech': voice_handler.tts_engine is not None,
+            'supported_languages': list(voice_handler.supported_languages.keys())
+        }
+        
+        if voice_handler.is_available():
+            test_results = voice_handler.test_voice_functionality()
+            status.update(test_results)
+            status['available_voices'] = voice_handler.get_available_voices()
+        
+        return jsonify({
+            'success': True,
+            'status': status
+        })
+        
+    except Exception as e:
+        logging.error(f"Voice status error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Error checking voice status'
         }), 500
 
 @app.errorhandler(404)

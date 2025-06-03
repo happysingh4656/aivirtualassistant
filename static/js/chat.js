@@ -6,6 +6,11 @@ class SerenityChat {
         this.sendButton = document.getElementById('sendButton');
         this.typingIndicator = document.getElementById('typingIndicator');
         
+        // Voice elements
+        this.voiceButton = document.getElementById('voiceButton');
+        this.speakerButton = document.getElementById('speakerButton');
+        this.voiceStatus = document.getElementById('voiceStatus');
+        
         // Meditation modal elements
         this.meditationModal = new bootstrap.Modal(document.getElementById('meditationModal'));
         this.meditationContent = document.getElementById('meditationContent');
@@ -19,7 +24,15 @@ class SerenityChat {
         this.currentMeditationSession = null;
         this.currentStep = 0;
         
+        // Voice functionality state
+        this.isRecording = false;
+        this.mediaRecorder = null;
+        this.audioChunks = [];
+        this.voiceAvailable = false;
+        this.currentLanguage = 'en';
+        
         this.initializeEventListeners();
+        this.initializeVoiceFeatures();
         this.focusInput();
     }
     
@@ -42,6 +55,15 @@ class SerenityChat {
         document.querySelectorAll('input[name="language"], input[name="mobileLanguage"]').forEach(radio => {
             radio.addEventListener('change', (e) => this.handleLanguageChange(e));
         });
+        
+        // Voice button events
+        if (this.voiceButton) {
+            this.voiceButton.addEventListener('click', () => this.toggleVoiceRecording());
+        }
+        
+        if (this.speakerButton) {
+            this.speakerButton.addEventListener('click', () => this.toggleSpeakerMode());
+        }
     }
     
     async handleSendMessage(e) {
